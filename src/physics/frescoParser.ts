@@ -249,9 +249,14 @@ export function parseFort16Output(fort16Text: string): AngularDataPoint[] {
     // Filter XMGrace @ directive lines
     if (trimmed.startsWith('@')) {
       if (trimmed.includes('legend')) {
-        const legendMatch = trimmed.match(/legend\s+(?:"([^"]+)"|'([^']+)'|(\S+))/i) || trimmed.match(/"([^"]+)"/);
-        if (legendMatch) {
-          currentLegend = legendMatch[1] || legendMatch[2] || legendMatch[3] || '';
+        const quoteMatch = trimmed.match(/"([^"]+)"/) || trimmed.match(/'([^']+)'/);
+        if (quoteMatch) {
+          currentLegend = quoteMatch[1] || quoteMatch[2] || '';
+        } else {
+          const fallbackMatch = trimmed.match(/legend\s+(?:string\s+\d+\s+)?(\S+)/i);
+          if (fallbackMatch) {
+            currentLegend = fallbackMatch[1] || '';
+          }
         }
       }
       continue;
