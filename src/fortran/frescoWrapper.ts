@@ -199,6 +199,25 @@ export async function runFortranFresco(
       if (fort16Raw) {
         angularDistribution = parseFort16Output(fort16Raw);
       }
+
+      // If fort.16 is empty, check other standard fort.* angular cross section files
+      if (angularDistribution.length === 0) {
+        const altFortFiles = ['fort.13', 'fort.14', 'fort.17', 'fort.38', 'fort.39', 'fort.200'];
+        for (const file of altFortFiles) {
+          const filePath = path.join(runDir, file);
+          if (fs.existsSync(filePath)) {
+            const altRaw = fs.readFileSync(filePath, 'utf-8');
+            if (altRaw) {
+              const parsedAlt = parseFort16Output(altRaw);
+              if (parsedAlt.length >= 2) {
+                angularDistribution = parsedAlt;
+                break;
+              }
+            }
+          }
+        }
+      }
+
       if (angularDistribution.length === 0 && frescoOutRaw) {
         angularDistribution = parseFrescoOutCrossSections(frescoOutRaw);
       }

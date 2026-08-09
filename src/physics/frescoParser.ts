@@ -236,8 +236,7 @@ export function parseFort16Output(fort16Text: string): AngularDataPoint[] {
  * Parses angular cross-section table directly from fresco.out / stdout when fort.16 is empty or unwritten.
  */
 export function parseFrescoOutCrossSections(frescoOutText: string): AngularDataPoint[] {
-  const points: AngularDataPoint[] = [];
-  if (!frescoOutText) return points;
+  if (!frescoOutText) return [];
 
   const lines = frescoOutText.split('\n');
 
@@ -245,6 +244,7 @@ export function parseFrescoOutCrossSections(frescoOutText: string): AngularDataP
   // or "  50.00 deg.: X-S = 286.779 mb/sr"
   const linePattern = /^\s*([\d\.]+)\s*deg\.?\s*:\s*(?:X-S|SIGMA|CROSS\s*SECTION)?\s*=\s*([\d\.\+E\-]+)\s*(?:mb\/sr|mb)?(?:.*(?:Ratio|Ruth)\s*=\s*([\d\.\+E\-]+))?/i;
 
+  const points1: AngularDataPoint[] = [];
   for (const line of lines) {
     const match = line.match(linePattern);
     if (match) {
@@ -252,9 +252,9 @@ export function parseFrescoOutCrossSections(frescoOutText: string): AngularDataP
       const sigmaMb = parseFloat(match[2]);
       const ratioRutherford = match[3] ? parseFloat(match[3]) : 1.0;
 
-      if (!isNaN(angleCm) && !isNaN(sigmaMb) && angleCm >= 0 && angleCm <= 180) {
-        if (!points.some((p) => Math.abs(p.angleCm - angleCm) < 1e-4)) {
-          points.push({
+      if (!isNaN(angleCm) && !isNaN(sigmaMb) && angleCm >= 0 && angleCm <= 180 && sigmaMb >= 0) {
+        if (!points1.some((p) => Math.abs(p.angleCm - angleCm) < 1e-4)) {
+          points1.push({
             angleCm,
             angleLab: angleCm,
             sigmaMb,
@@ -267,39 +267,49 @@ export function parseFrescoOutCrossSections(frescoOutText: string): AngularDataP
     }
   }
 
-  if (points.length > 0) {
-    return points.sort((a, b) => a.angleCm - b.angleCm);
+  if (points1.length >= 2) {
+    return points1.sort((a, b) => a.angleCm - b.angleCm);
   }
 
-  // Pattern 2: Tabular FRESCO output (e.g. CROSS SECTIONS FOR OUTGOING ... or THETA / SIGMA headers)
-  let inTable = false;
+  // Pattern 2: Strict Tabular FRESCO Parser
+  // Requires explicit table headers specifying BOTH an angle descriptor (THETA, ANGLE, DEG) AND a cross-section descriptor (SIGMA, X-S, CROSS, RUTH, MB/SR).
+  // Strictly validates that candidate angle values strictly monotonically increase (angle_i > angle_{i-1}).
+  let currentBlock: AngularDataPoint[] = [];
+  let bestBlock: AngularDataPoint[] = [];
+  let inAngleTable = false;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const upper = line.toUpperCase();
 
-    // Trigger table mode on FRESCO section headers
-    if (
-      upper.includes('CROSS SECTION') ||
-      upper.includes('OUTGOING') ||
-      upper.includes('ANGULAR DISTRIBUTION') ||
-      upper.includes('THETA') ||
-      upper.includes('SIGMA')
-    ) {
-      inTable = true;
+    // Trigger table mode ONLY if header contains both ANGLE descriptor and SIGMA/CROSS SECTION descriptor
+    const hasAngleHeader = upper.includes('ANGLE') || upper.includes('THETA') || upper.includes('DEG');
+    const hasSigmaHeader =
+      upper.includes('SIGMA') || upper.includes('X-S') || upper.includes('CROSS SECTION') || upper.includes('RUTH') || upper.includes('MB/SR');
+
+    if (hasAngleHeader && hasSigmaHeader) {
+      inAngleTable = true;
+      if (currentBlock.length > bestBlock.length) {
+        bestBlock = currentBlock;
+      }
+      currentBlock = [];
       continue;
     }
 
-    if (inTable) {
+    if (inAngleTable) {
       const trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith('---') || trimmed.startsWith('===') || upper.includes('TOTAL') || upper.includes('FRESCO')) {
-        if (points.length >= 3 && (!trimmed || upper.includes('TOTAL'))) {
-          inTable = false;
+
+      // End table block on empty line, dashed line, or new section header
+      if (!trimmed || trimmed.startsWith('---') || trimmed.startsWith('===') || upper.includes('SECTION') || upper.includes('STATE #') || upper.includes('FRESCO')) {
+        if (currentBlock.length > bestBlock.length) {
+          bestBlock = currentBlock;
         }
+        currentBlock = [];
+        inAngleTable = false;
         continue;
       }
 
-      // Skip lines that are text headers within table
+      // Ignore text header rows within table block
       if (/[a-zA-Z]{3,}/.test(trimmed) && !trimmed.includes('E-') && !trimmed.includes('E+')) {
         continue;
       }
@@ -309,29 +319,46 @@ export function parseFrescoOutCrossSections(frescoOutText: string): AngularDataP
         const angleCm = parts[0];
         const sigmaMb = parts[1];
 
-        if (angleCm >= 0 && angleCm <= 180 && sigmaMb >= 0) {
+        const lastAngle = currentBlock.length > 0 ? currentBlock[currentBlock.length - 1].angleCm : -1;
+
+        // Monotonic increase check & angle boundary check
+        if (angleCm >= 0 && angleCm <= 180 && angleCm > lastAngle && sigmaMb >= 0) {
           const ratioRutherford = parts.length >= 3 ? parts[2] : 1;
           const sigmaRutherford = parts.length >= 4 ? parts[3] : (ratioRutherford > 0 ? sigmaMb / ratioRutherford : 0);
           const ay = parts.length >= 5 ? parts[4] : 0;
 
-          if (!points.some((p) => Math.abs(p.angleCm - angleCm) < 1e-4)) {
-            points.push({
-              angleCm,
-              angleLab: angleCm,
-              sigmaMb,
-              sigmaRutherford,
-              ratioRutherford,
-              ay,
-            });
+          currentBlock.push({
+            angleCm,
+            angleLab: angleCm,
+            sigmaMb,
+            sigmaRutherford,
+            ratioRutherford,
+            ay,
+          });
+        } else {
+          // Angle was not strictly increasing or out of bounds -> end this table block
+          if (currentBlock.length > bestBlock.length) {
+            bestBlock = currentBlock;
           }
+          currentBlock = [];
+          inAngleTable = false;
         }
+      } else {
+        if (currentBlock.length > bestBlock.length) {
+          bestBlock = currentBlock;
+        }
+        currentBlock = [];
+        inAngleTable = false;
       }
     }
   }
 
-  // Only return points if we have a valid sequence (at least 2 points)
-  if (points.length >= 2) {
-    return points.sort((a, b) => a.angleCm - b.angleCm);
+  if (currentBlock.length > bestBlock.length) {
+    bestBlock = currentBlock;
+  }
+
+  if (bestBlock.length >= 2) {
+    return bestBlock.sort((a, b) => a.angleCm - b.angleCm);
   }
 
   return [];
