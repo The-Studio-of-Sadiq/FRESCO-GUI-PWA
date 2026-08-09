@@ -6,7 +6,6 @@ import {
   Sliders,
   LineChart,
   GitFork,
-  Bot,
   History,
   CloudUpload,
   BookOpen,
@@ -18,8 +17,8 @@ import { PRESET_REACTIONS } from '../physics/presets';
 import { PresetReaction } from '../types/fresco';
 
 interface HeaderProps {
-  activeTab: 'builder' | 'editor' | 'plotter' | 'fitter' | 'couplings' | 'ai' | 'render' | 'manual' | 'fortran';
-  setActiveTab: (tab: 'builder' | 'editor' | 'plotter' | 'fitter' | 'couplings' | 'ai' | 'render' | 'manual' | 'fortran') => void;
+  activeTab: 'builder' | 'editor' | 'plotter' | 'fitter' | 'couplings' | 'render' | 'manual' | 'fortran';
+  setActiveTab: (tab: 'builder' | 'editor' | 'plotter' | 'fitter' | 'couplings' | 'render' | 'manual' | 'fortran') => void;
   onSelectPreset: (preset: PresetReaction) => void;
   onRunSimulation: () => void;
   isSimulating: boolean;
@@ -180,19 +179,6 @@ export const Header: React.FC<HeaderProps> = ({
           >
             <GitFork className="w-3.5 h-3.5" />
             <span>Channel Couplings</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('ai')}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-md font-medium transition cursor-pointer whitespace-nowrap text-xs ${
-              activeTab === 'ai'
-                ? 'bg-slate-800 text-cyan-400 border border-cyan-500/40 shadow-sm'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
-            }`}
-            id="tab-ai"
-          >
-            <Bot className="w-3.5 h-3.5" />
-            <span>Gemini AI Assistant</span>
           </button>
 
           <button

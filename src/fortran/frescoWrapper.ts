@@ -214,6 +214,8 @@ export async function runFortranFresco(
         grazingL: 0,
         quarterPointAngle: 0,
         executionTimeMs,
+        engineUsed: 'Native Fortran (gfortran)',
+        exitCode: code,
       };
 
       // Extract cross sections from fresco.out if available

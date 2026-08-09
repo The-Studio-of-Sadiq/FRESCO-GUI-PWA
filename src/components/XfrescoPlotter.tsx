@@ -21,6 +21,9 @@ import {
   Download,
   Info,
   Maximize2,
+  Cpu,
+  CheckCircle2,
+  AlertTriangle,
 } from 'lucide-react';
 
 interface XfrescoPlotterProps {
@@ -81,6 +84,33 @@ export const XfrescoPlotter: React.FC<XfrescoPlotterProps> = ({ output, onExport
 
   return (
     <div className="max-w-7xl mx-auto space-y-4 text-slate-100">
+      {/* Engine Used Banner */}
+      <div
+        className={`flex items-center justify-between px-4 py-2.5 rounded-xl border text-xs font-mono shadow-sm ${
+          summary.engineUsed?.includes('Fortran') || summary.engineUsed?.includes('gfortran')
+            ? 'bg-emerald-950/40 border-emerald-800/60 text-emerald-300'
+            : 'bg-amber-950/40 border-amber-800/60 text-amber-300'
+        }`}
+      >
+        <div className="flex items-center gap-2">
+          {summary.engineUsed?.includes('Fortran') || summary.engineUsed?.includes('gfortran') ? (
+            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+          ) : (
+            <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+          )}
+          <span>
+            <strong>PHYSICS ENGINE SOLVER:</strong>{' '}
+            {summary.engineUsed || 'Native Fortran (gfortran)'}
+            {summary.exitCode !== undefined && ` [Exit Code: ${summary.exitCode}]`}
+          </span>
+        </div>
+        <span className="text-[10px] font-semibold text-slate-300 uppercase tracking-wider hidden sm:inline">
+          {summary.engineUsed?.includes('Fortran')
+            ? '⚡ Native Fortran Executable (Full Coupled-Channels Physics)'
+            : '⚠️ JS Browser Fallback Approximation'}
+        </span>
+      </div>
+
       {/* Bento Metric Cards Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs font-mono">
         <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4 shadow-md border-l-2 border-l-cyan-400">

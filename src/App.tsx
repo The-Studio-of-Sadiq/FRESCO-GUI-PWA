@@ -10,14 +10,13 @@ import { FrescoDeckEditor } from './components/FrescoDeckEditor';
 import { XfrescoPlotter } from './components/XfrescoPlotter';
 import { SfrescoFitter } from './components/SfrescoFitter';
 import { CouplingDiagram } from './components/CouplingDiagram';
-import { GeminiAssistant } from './components/GeminiAssistant';
 import { RenderDeployModal } from './components/RenderDeployModal';
 import { FrescoFortranManual } from './components/FrescoFortranManual';
 import { FortranSourceViewer } from './components/FortranSourceViewer';
 import { RunHistoryModal } from './components/RunHistoryModal';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'builder' | 'editor' | 'plotter' | 'fitter' | 'couplings' | 'ai' | 'render' | 'manual' | 'fortran'>('builder');
+  const [activeTab, setActiveTab] = useState<'builder' | 'editor' | 'plotter' | 'fitter' | 'couplings' | 'render' | 'manual' | 'fortran'>('builder');
   const [deckConfig, setDeckConfig] = useState<FRESCODeckConfig>(PRESET_REACTIONS[0].config);
   const [simulationOutput, setSimulationOutput] = useState<SimulationOutput | null>(null);
   const [isSimulating, setIsSimulating] = useState<boolean>(false);
@@ -183,8 +182,6 @@ export default function App() {
         )}
 
         {activeTab === 'couplings' && <CouplingDiagram config={deckConfig} />}
-
-        {activeTab === 'ai' && <GeminiAssistant config={deckConfig} />}
 
         {activeTab === 'render' && <RenderDeployModal />}
 

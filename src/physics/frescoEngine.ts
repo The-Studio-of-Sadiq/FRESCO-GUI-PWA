@@ -335,6 +335,8 @@ export async function runFrescoSimulation(config: FRESCODeckConfig): Promise<Sim
     grazingL,
     quarterPointAngle: quarterPointAngleDeg,
     executionTimeMs,
+    engineUsed: 'TypeScript High-Speed Physics Engine',
+    exitCode: 0,
   };
 
   // Generate fort.16 output format
