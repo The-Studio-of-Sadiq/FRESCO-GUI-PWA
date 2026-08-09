@@ -3,7 +3,7 @@ import { promisify } from 'util';
 import fs from 'fs';
 import path from 'path';
 import { FRESCODeckConfig, SimulationOutput, AngularDataPoint, SMatrixElement, SimulationSummary } from '../types/fresco';
-import { generateFrescoDeck, parseFort16Output } from '../physics/frescoParser';
+import { generateFrescoDeck, parseFort16Output, parseFrescoOutCrossSections } from '../physics/frescoParser';
 
 const execAsync = promisify(exec);
 
@@ -198,6 +198,9 @@ export async function runFortranFresco(
       let angularDistribution: AngularDataPoint[] = [];
       if (fort16Raw) {
         angularDistribution = parseFort16Output(fort16Raw);
+      }
+      if (angularDistribution.length === 0 && frescoOutRaw) {
+        angularDistribution = parseFrescoOutCrossSections(frescoOutRaw);
       }
 
       // Cleanup run directory

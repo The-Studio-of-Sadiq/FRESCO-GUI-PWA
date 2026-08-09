@@ -231,3 +231,94 @@ export function parseFort16Output(fort16Text: string): AngularDataPoint[] {
 
   return points;
 }
+
+/**
+ * Parses angular cross-section table directly from fresco.out / stdout when fort.16 is empty or unwritten.
+ */
+export function parseFrescoOutCrossSections(frescoOutText: string): AngularDataPoint[] {
+  const points: AngularDataPoint[] = [];
+  if (!frescoOutText) return points;
+
+  const lines = frescoOutText.split('\n');
+  let inTable = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const upper = line.toUpperCase();
+
+    // Check for table header markers in FRESCO output
+    if (
+      upper.includes('CROSS SECTION') ||
+      upper.includes('THETA') ||
+      upper.includes('SIGMA') ||
+      upper.includes('ANGULAR DISTRIBUTION')
+    ) {
+      if (upper.includes('THETA') || upper.includes('ANGLE') || upper.includes('SIGMA') || upper.includes('RUTH')) {
+        inTable = true;
+        continue;
+      }
+    }
+
+    if (inTable) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('---') || trimmed.startsWith('===') || upper.includes('TOTAL')) {
+        if (points.length > 0 && !trimmed) {
+          inTable = false;
+        }
+        continue;
+      }
+
+      const parts = trimmed.split(/\s+/).map(Number).filter((n) => !isNaN(n));
+      if (parts.length >= 2 && parts[0] >= 0 && parts[0] <= 180) {
+        const angleCm = parts[0];
+        const sigmaMb = parts[1];
+        const ratioRutherford = parts.length >= 3 ? parts[2] : 1;
+        const sigmaRutherford = parts.length >= 4 ? parts[3] : (ratioRutherford > 0 ? sigmaMb / ratioRutherford : 0);
+        const ay = parts.length >= 5 ? parts[4] : 0;
+
+        if (!points.some(p => Math.abs(p.angleCm - angleCm) < 1e-4)) {
+          points.push({
+            angleCm,
+            angleLab: angleCm,
+            sigmaMb,
+            sigmaRutherford,
+            ratioRutherford,
+            ay,
+          });
+        }
+      }
+    }
+  }
+
+  // Scan all lines for floating-point columns starting with angle 0..180 if table header was missed
+  if (points.length === 0) {
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (trimmed.startsWith('#') || trimmed.startsWith('!') || trimmed.startsWith('*') || trimmed.startsWith('FRESCO')) continue;
+      const parts = trimmed.split(/\s+/).map(Number);
+      if (parts.length >= 2 && parts.every((n) => !isNaN(n))) {
+        const angleCm = parts[0];
+        if (angleCm >= 0 && angleCm <= 180 && parts[1] >= 0) {
+          const sigmaMb = parts[1];
+          const ratioRutherford = parts.length >= 3 ? parts[2] : 1;
+          const sigmaRutherford = parts.length >= 4 ? parts[3] : 0;
+          const ay = parts.length >= 5 ? parts[4] : 0;
+
+          if (!points.some(p => Math.abs(p.angleCm - angleCm) < 1e-4)) {
+            points.push({
+              angleCm,
+              angleLab: angleCm,
+              sigmaMb,
+              sigmaRutherford,
+              ratioRutherford,
+              ay,
+            });
+          }
+        }
+      }
+    }
+  }
+
+  return points;
+}
+

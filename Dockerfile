@@ -18,8 +18,8 @@ RUN cd src/source && \
 RUN npm run build
 
 FROM node:20-alpine AS runner
-# Install Fortran runtime libraries and tools in production container
-RUN apk add --no-cache libgfortran gfortran build-base
+# Install Fortran runtime shared library only
+RUN apk add --no-cache libgfortran
 
 WORKDIR /app
 
