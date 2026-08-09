@@ -199,37 +199,116 @@ export function parseFrescoDeck(deckText: string): FRESCODeckConfig {
 }
 
 /**
- * Parses `fort.16` output file from FRESCO containing columns:
+ * Parses `fort.16` XMGrace output file from FRESCO containing columns:
  * Angle (cm), Cross section (mb/sr), Rutherford cross section (mb/sr), Ratio to Rutherford, Ay
+ * Handles multi-channel XMGrace datasets (e.g. Partition 1 Excit 1, Partition 1 Excit 2)
  */
+export interface Fort16Dataset {
+  datasetIndex: number;
+  legend: string;
+  partition?: number;
+  excit?: number;
+  points: AngularDataPoint[];
+}
+
 export function parseFort16Output(fort16Text: string): AngularDataPoint[] {
-  const points: AngularDataPoint[] = [];
+  if (!fort16Text) return [];
+
   const lines = fort16Text.split('\n');
+  const datasets: Fort16Dataset[] = [];
+
+  let currentPoints: AngularDataPoint[] = [];
+  let currentLegend = '';
+
+  const saveCurrentDataset = () => {
+    if (currentPoints.length > 0) {
+      let partition = 1;
+      let excit = 1;
+
+      const partMatch = currentLegend.match(/Partition\s*=\s*(\d+)/i);
+      const excitMatch = currentLegend.match(/Excit\s*=\s*(\d+)/i);
+      if (partMatch) partition = parseInt(partMatch[1], 10);
+      if (excitMatch) excit = parseInt(excitMatch[1], 10);
+
+      datasets.push({
+        datasetIndex: datasets.length,
+        legend: currentLegend || `Channel ${datasets.length + 1}`,
+        partition,
+        excit,
+        points: currentPoints,
+      });
+      currentPoints = [];
+      currentLegend = '';
+    }
+  };
 
   for (const line of lines) {
     const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('#') || trimmed.startsWith('!') || trimmed.startsWith('Angle')) continue;
+    if (!trimmed) continue;
 
-    const parts = trimmed.split(/\s+/).map(Number).filter((n) => !isNaN(n));
-    if (parts.length >= 2) {
+    // Filter XMGrace @ directive lines
+    if (trimmed.startsWith('@')) {
+      if (trimmed.includes('legend')) {
+        const legendMatch = trimmed.match(/legend\s+(?:"([^"]+)"|'([^']+)'|(\S+))/i) || trimmed.match(/"([^"]+)"/);
+        if (legendMatch) {
+          currentLegend = legendMatch[1] || legendMatch[2] || legendMatch[3] || '';
+        }
+      }
+      continue;
+    }
+
+    // XMGrace end-of-set marker
+    if (trimmed.startsWith('&')) {
+      saveCurrentDataset();
+      continue;
+    }
+
+    if (trimmed.startsWith('#') || trimmed.startsWith('!') || trimmed.startsWith('$')) {
+      continue;
+    }
+
+    // Ignore text header lines
+    if (/[a-zA-Z]{2,}/.test(trimmed) && !trimmed.includes('e-') && !trimmed.includes('e+') && !trimmed.includes('E-') && !trimmed.includes('E+')) {
+      continue;
+    }
+
+    const parts = trimmed.split(/\s+/).map(Number);
+    if (parts.length >= 2 && parts.every((n) => !isNaN(n))) {
       const angleCm = parts[0];
       const sigmaMb = parts[1];
       const sigmaRutherford = parts.length >= 3 ? parts[2] : 0;
       const ratioRutherford = parts.length >= 4 ? parts[3] : (sigmaRutherford > 0 ? sigmaMb / sigmaRutherford : 1);
       const ay = parts.length >= 5 ? parts[4] : 0;
 
-      points.push({
-        angleCm,
-        angleLab: angleCm, // approx / default
-        sigmaMb,
-        sigmaRutherford,
-        ratioRutherford,
-        ay,
-      });
+      if (angleCm >= 0 && angleCm <= 180 && sigmaMb >= 0) {
+        // Implicit new dataset block if angle resets/decreases
+        if (currentPoints.length > 0 && angleCm <= currentPoints[currentPoints.length - 1].angleCm) {
+          saveCurrentDataset();
+        }
+
+        currentPoints.push({
+          angleCm,
+          angleLab: angleCm,
+          sigmaMb,
+          sigmaRutherford,
+          ratioRutherford,
+          ay,
+        });
+      }
     }
   }
 
-  return points;
+  saveCurrentDataset();
+
+  if (datasets.length === 0) return [];
+
+  // Primary dataset selection: Ground state elastic channel (Excit = 1, Partition = 1) or first dataset
+  const primaryDataset =
+    datasets.find((d) => d.partition === 1 && d.excit === 1) ||
+    datasets.find((d) => d.excit === 1) ||
+    datasets[0];
+
+  return primaryDataset.points.sort((a, b) => a.angleCm - b.angleCm);
 }
 
 /**
