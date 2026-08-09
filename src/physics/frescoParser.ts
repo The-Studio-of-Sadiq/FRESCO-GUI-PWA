@@ -240,71 +240,81 @@ export function parseFrescoOutCrossSections(frescoOutText: string): AngularDataP
   if (!frescoOutText) return points;
 
   const lines = frescoOutText.split('\n');
-  let inTable = false;
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const upper = line.toUpperCase();
+  // Pattern 1: FRESCO's explicit line format: "  50.00 deg.: X-S =   286.779475 mb/sr, Ratio to Ruth =   1.2345"
+  // or "  50.00 deg.: X-S = 286.779 mb/sr"
+  const linePattern = /^\s*([\d\.]+)\s*deg\.?\s*:\s*(?:X-S|SIGMA|CROSS\s*SECTION)?\s*=\s*([\d\.\+E\-]+)\s*(?:mb\/sr|mb)?(?:.*(?:Ratio|Ruth)\s*=\s*([\d\.\+E\-]+))?/i;
 
-    // Check for table header markers in FRESCO output
-    if (
-      upper.includes('CROSS SECTION') ||
-      upper.includes('THETA') ||
-      upper.includes('SIGMA') ||
-      upper.includes('ANGULAR DISTRIBUTION')
-    ) {
-      if (upper.includes('THETA') || upper.includes('ANGLE') || upper.includes('SIGMA') || upper.includes('RUTH')) {
-        inTable = true;
-        continue;
-      }
-    }
+  for (const line of lines) {
+    const match = line.match(linePattern);
+    if (match) {
+      const angleCm = parseFloat(match[1]);
+      const sigmaMb = parseFloat(match[2]);
+      const ratioRutherford = match[3] ? parseFloat(match[3]) : 1.0;
 
-    if (inTable) {
-      const trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith('---') || trimmed.startsWith('===') || upper.includes('TOTAL')) {
-        if (points.length > 0 && !trimmed) {
-          inTable = false;
-        }
-        continue;
-      }
-
-      const parts = trimmed.split(/\s+/).map(Number).filter((n) => !isNaN(n));
-      if (parts.length >= 2 && parts[0] >= 0 && parts[0] <= 180) {
-        const angleCm = parts[0];
-        const sigmaMb = parts[1];
-        const ratioRutherford = parts.length >= 3 ? parts[2] : 1;
-        const sigmaRutherford = parts.length >= 4 ? parts[3] : (ratioRutherford > 0 ? sigmaMb / ratioRutherford : 0);
-        const ay = parts.length >= 5 ? parts[4] : 0;
-
-        if (!points.some(p => Math.abs(p.angleCm - angleCm) < 1e-4)) {
+      if (!isNaN(angleCm) && !isNaN(sigmaMb) && angleCm >= 0 && angleCm <= 180) {
+        if (!points.some((p) => Math.abs(p.angleCm - angleCm) < 1e-4)) {
           points.push({
             angleCm,
             angleLab: angleCm,
             sigmaMb,
-            sigmaRutherford,
+            sigmaRutherford: ratioRutherford > 0 ? sigmaMb / ratioRutherford : 0,
             ratioRutherford,
-            ay,
+            ay: 0,
           });
         }
       }
     }
   }
 
-  // Scan all lines for floating-point columns starting with angle 0..180 if table header was missed
-  if (points.length === 0) {
-    for (const line of lines) {
+  if (points.length > 0) {
+    return points.sort((a, b) => a.angleCm - b.angleCm);
+  }
+
+  // Pattern 2: Tabular FRESCO output (e.g. CROSS SECTIONS FOR OUTGOING ... or THETA / SIGMA headers)
+  let inTable = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const upper = line.toUpperCase();
+
+    // Trigger table mode on FRESCO section headers
+    if (
+      upper.includes('CROSS SECTION') ||
+      upper.includes('OUTGOING') ||
+      upper.includes('ANGULAR DISTRIBUTION') ||
+      upper.includes('THETA') ||
+      upper.includes('SIGMA')
+    ) {
+      inTable = true;
+      continue;
+    }
+
+    if (inTable) {
       const trimmed = line.trim();
-      if (trimmed.startsWith('#') || trimmed.startsWith('!') || trimmed.startsWith('*') || trimmed.startsWith('FRESCO')) continue;
+      if (!trimmed || trimmed.startsWith('---') || trimmed.startsWith('===') || upper.includes('TOTAL') || upper.includes('FRESCO')) {
+        if (points.length >= 3 && (!trimmed || upper.includes('TOTAL'))) {
+          inTable = false;
+        }
+        continue;
+      }
+
+      // Skip lines that are text headers within table
+      if (/[a-zA-Z]{3,}/.test(trimmed) && !trimmed.includes('E-') && !trimmed.includes('E+')) {
+        continue;
+      }
+
       const parts = trimmed.split(/\s+/).map(Number);
       if (parts.length >= 2 && parts.every((n) => !isNaN(n))) {
         const angleCm = parts[0];
-        if (angleCm >= 0 && angleCm <= 180 && parts[1] >= 0) {
-          const sigmaMb = parts[1];
+        const sigmaMb = parts[1];
+
+        if (angleCm >= 0 && angleCm <= 180 && sigmaMb >= 0) {
           const ratioRutherford = parts.length >= 3 ? parts[2] : 1;
-          const sigmaRutherford = parts.length >= 4 ? parts[3] : 0;
+          const sigmaRutherford = parts.length >= 4 ? parts[3] : (ratioRutherford > 0 ? sigmaMb / ratioRutherford : 0);
           const ay = parts.length >= 5 ? parts[4] : 0;
 
-          if (!points.some(p => Math.abs(p.angleCm - angleCm) < 1e-4)) {
+          if (!points.some((p) => Math.abs(p.angleCm - angleCm) < 1e-4)) {
             points.push({
               angleCm,
               angleLab: angleCm,
@@ -319,6 +329,11 @@ export function parseFrescoOutCrossSections(frescoOutText: string): AngularDataP
     }
   }
 
-  return points;
+  // Only return points if we have a valid sequence (at least 2 points)
+  if (points.length >= 2) {
+    return points.sort((a, b) => a.angleCm - b.angleCm);
+  }
+
+  return [];
 }
 

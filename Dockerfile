@@ -6,7 +6,7 @@ RUN apk add --no-cache gfortran build-base
 
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci
+RUN npm install
 
 COPY . .
 
@@ -27,7 +27,7 @@ ENV NODE_ENV=production
 ENV PORT=3000
 
 COPY package*.json ./
-RUN npm ci --only=production
+RUN npm install --omit=dev
 
 COPY --from=builder /app/dist ./dist
 # Copy Fortran source code and pre-compiled native executables
