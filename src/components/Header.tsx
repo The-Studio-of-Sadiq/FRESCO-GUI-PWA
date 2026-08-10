@@ -41,19 +41,24 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="flex items-center justify-between h-14 gap-4">
           {/* Logo & Title */}
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-cyan-500 rounded-lg flex items-center justify-center font-bold text-slate-950 shadow-md shadow-cyan-500/20 font-mono text-base">
-              F
-            </div>
+            <img
+              src="/favicon.svg"
+              alt="FRESCO Logo"
+              className="w-9 h-9 rounded-xl object-contain shadow-lg shadow-cyan-500/20 border border-cyan-500/30 ring-2 ring-cyan-500/20 bg-[#0B132B]"
+            />
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="font-semibold text-base text-white tracking-tight flex items-center">
-                  FRESCO <span className="text-cyan-400 font-mono text-xs ml-1.5 font-normal">v4.2-SIM</span>
+                <h1 className="font-bold text-lg text-white tracking-tight flex items-center gap-1.5 font-sans">
+                  FRESCO <span className="text-cyan-400 font-mono text-[10px] px-1.5 py-0.5 bg-cyan-950/80 rounded border border-cyan-500/30 font-semibold">v4.2</span>
                 </h1>
                 <div className="hidden md:flex items-center gap-1.5 px-2.5 py-0.5 bg-slate-800/80 rounded-full text-[10px] font-mono border border-slate-700 text-slate-300">
                   <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></div>
-                  <span>WASM ENGINE ACTIVE</span>
+                  <span>NATIVE FORTRAN ENGINE</span>
                 </div>
               </div>
+              <p className="text-[10px] text-slate-400 tracking-widest font-mono uppercase -mt-0.5 hidden sm:block">
+                Fluids · Research · Simulation · Computing
+              </p>
             </div>
           </div>
 

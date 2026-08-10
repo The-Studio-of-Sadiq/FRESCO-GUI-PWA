@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 240" width="100%" height="100%">
+  <defs>
+    <linearGradient id="logo-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0B132B"/>
+      <stop offset="100%" stop-color="#050A18"/>
+    </linearGradient>
+    <linearGradient id="fresco-flow-logo" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#22D3EE"/>
+      <stop offset="35%" stop-color="#00D2FF"/>
+      <stop offset="70%" stop-color="#2563EB"/>
+      <stop offset="100%" stop-color="#1E40AF"/>
+    </linearGradient>
+    <filter id="logo-glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="4" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="800" height="240" rx="24" fill="url(#logo-bg)"/>
+
+  <!-- Symbol Mark (Left) -->
+  <g transform="translate(30, 20) scale(0.38)" filter="url(#logo-glow)">
+    <path d="M 120 120 C 180 80, 320 80, 410 130 C 360 170, 270 170, 210 185 C 270 185, 330 190, 370 230 C 320 265, 250 260, 195 260 L 195 400 C 195 415, 175 420, 160 410 C 145 400, 140 375, 140 350 L 140 210 C 130 180, 115 150, 120 120 Z" fill="url(#fresco-flow-logo)" />
+    <path d="M 160 125 C 230 95, 350 95, 425 140" fill="none" stroke="#22D3EE" stroke-width="6" stroke-linecap="round" opacity="0.8" />
+    <path d="M 215 190 C 280 190, 340 200, 385 235" fill="none" stroke="#38BDF8" stroke-width="5" stroke-linecap="round" opacity="0.7" />
+    <circle cx="435" cy="115" r="7" fill="#22D3EE" />
+    <circle cx="455" cy="135" r="5" fill="#38BDF8" />
+    <circle cx="425" cy="155" r="4" fill="#00D2FF" />
+    <circle cx="400" cy="220" r="6" fill="#22D3EE" />
+    <circle cx="420" cy="245" r="4" fill="#38BDF8" />
+    <circle cx="100" cy="140" r="6" fill="#22D3EE" />
+    <circle cx="115" cy="180" r="5" fill="#00D2FF" />
+    <circle cx="125" cy="380" r="5" fill="#22D3EE" />
+  </g>
+
+  <!-- Wordmark & Tagline (Right) -->
+  <text x="240" y="125" font-family="'Inter', system-ui, sans-serif" font-weight="800" font-size="76" fill="#FFFFFF" letter-spacing="4">FRESCO</text>
+  <text x="242" y="165" font-family="'JetBrains Mono', monospace" font-weight="600" font-size="14" fill="#38BDF8" letter-spacing="5">FLUIDS · RESEARCH · SIMULATION · COMPUTING</text>
+</svg>
