@@ -14,6 +14,7 @@ import { RenderDeployModal } from './components/RenderDeployModal';
 import { FrescoFortranManual } from './components/FrescoFortranManual';
 import { FortranSourceViewer } from './components/FortranSourceViewer';
 import { RunHistoryModal } from './components/RunHistoryModal';
+import { Footer } from './components/Footer';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'builder' | 'editor' | 'plotter' | 'fitter' | 'couplings' | 'render' | 'manual' | 'fortran'>('builder');
@@ -188,6 +189,9 @@ export default function App() {
         {activeTab === 'manual' && <FrescoFortranManual />}
 
         {activeTab === 'fortran' && <FortranSourceViewer config={deckConfig} />}
+
+        {/* Authors & Original Source Code Attribution Footer */}
+        <Footer />
       </main>
 
       {/* Bento Grid Output Status Log Footer */}

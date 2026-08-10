@@ -1,5 +1,5 @@
 {
-  "name": "FRESCO Nuclear Physics Simulator",
+  "name": "FRESCO PWA GUI",
   "description": "Comprehensive web GUI, input generator, reaction coupled-channels engine simulator, and interactive plotter for FRESCO nuclear physics calculations.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]

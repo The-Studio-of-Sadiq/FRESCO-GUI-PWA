@@ -1,7 +1,15 @@
 {
+  "id": "/",
   "short_name": "FRESCO",
   "name": "FRESCO — Nuclear Physics & Reaction Simulator",
   "description": "Advanced Coupled-Channels & Nuclear Reaction Physics Simulator. Powered by Physics. Driven by Curiosity.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0B132B",
+  "theme_color": "#0B132B",
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "/favicon.ico",
@@ -33,11 +41,6 @@
       "purpose": "maskable"
     }
   ],
-  "start_url": "/",
-  "background_color": "#0B132B",
-  "theme_color": "#0B132B",
-  "display": "standalone",
-  "orientation": "any",
   "categories": ["education", "science", "productivity", "utilities"],
   "shortcuts": [
     {

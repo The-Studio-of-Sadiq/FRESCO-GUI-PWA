@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { PRESET_REACTIONS } from '../physics/presets';
 import { PresetReaction } from '../types/fresco';
+import { PWAInstallPrompt } from './PWAInstallPrompt';
 
 interface HeaderProps {
   activeTab: 'builder' | 'editor' | 'plotter' | 'fitter' | 'couplings' | 'render' | 'manual' | 'fortran';
@@ -64,6 +65,9 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Preset Reaction Dropdown & Action Controls */}
           <div className="flex items-center gap-2 sm:gap-3">
+            {/* PWA Install & Network Badge */}
+            <PWAInstallPrompt />
+
             {/* Reaction Benchmark Presets */}
             <div className="relative">
               <select
