@@ -102,6 +102,18 @@ async function startServer() {
     }
   });
 
+  // Serve PWA manifest & service worker with explicit MIME types
+  app.get("/manifest.json", (_req, res) => {
+    res.setHeader("Content-Type", "application/manifest+json");
+    res.sendFile(path.join(process.cwd(), "public", "manifest.json"));
+  });
+
+  app.get("/sw.js", (_req, res) => {
+    res.setHeader("Content-Type", "application/javascript");
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.sendFile(path.join(process.cwd(), "public", "sw.js"));
+  });
+
   // Serve static public assets
   app.use(express.static(path.join(process.cwd(), "public")));
 
