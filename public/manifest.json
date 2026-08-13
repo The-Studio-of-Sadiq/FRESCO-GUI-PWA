@@ -1,7 +1,7 @@
 {
   "id": "/",
-  "short_name": "FRESCO",
-  "name": "FRESCO — Nuclear Physics & Reaction Simulator",
+  "short_name": "FRESCO PWA",
+  "name": "FRESCO PWA GUI",
   "description": "Advanced Coupled-Channels & Nuclear Reaction Physics Simulator. Powered by Physics. Driven by Curiosity.",
   "start_url": "/",
   "scope": "/",

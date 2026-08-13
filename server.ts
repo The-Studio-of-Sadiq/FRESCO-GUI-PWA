@@ -102,6 +102,9 @@ async function startServer() {
     }
   });
 
+  // Serve static public assets
+  app.use(express.static(path.join(process.cwd(), "public")));
+
   // Serve static files / Vite middleware
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({

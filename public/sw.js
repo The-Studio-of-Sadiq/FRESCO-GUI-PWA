@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fresco-pwa-v1';
+const CACHE_NAME = 'fresco-pwa-v3';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -9,15 +9,29 @@ const STATIC_ASSETS = [
   '/apple-touch-icon.png',
   '/icon-192.png',
   '/icon-512.png',
-  '/maskable-icon-512.png'
+  '/maskable-icon-512.png',
+  '/images/fresco_social_banner.jpg',
+  '/images/fresco_hero_poster.jpg',
+  '/images/fresco_logo_dark.jpg',
+  '/images/fresco_logo_horizontal.jpg',
+  '/images/fresco_logo_vertical.jpg',
+  '/images/fresco_app_icon.jpg',
+  '/images/fresco_design_system_board.jpg',
+  '/images/fresco_og_image.jpg'
 ];
 
 // Install Event
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
+    caches.open(CACHE_NAME).then(async (cache) => {
       console.log('[Service Worker] Caching app shell & static assets');
-      return cache.addAll(STATIC_ASSETS);
+      await Promise.allSettled(
+        STATIC_ASSETS.map((asset) =>
+          cache.add(asset).catch((err) => {
+            console.warn(`[Service Worker] Optional pre-cache skipped for ${asset}:`, err);
+          })
+        )
+      );
     }).then(() => self.skipWaiting())
   );
 });
