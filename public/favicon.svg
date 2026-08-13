@@ -1,62 +1,57 @@
 <svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
     <defs>
-      <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stop-color="#0B132B"/>
-        <stop offset="50%" stop-color="#0F172A"/>
-        <stop offset="100%" stop-color="#1E293B"/>
+      <linearGradient id="frescoFluidGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#06B6D4"/>
+        <stop offset="40%" stop-color="#22D3EE"/>
+        <stop offset="70%" stop-color="#3563EB"/>
+        <stop offset="100%" stop-color="#1E40AF"/>
       </linearGradient>
 
-      <linearGradient id="fluidGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <linearGradient id="frescoFluidGrad2" x1="0%" y1="0%" x2="100%" y2="0%">
         <stop offset="0%" stop-color="#00F0FF"/>
-        <stop offset="50%" stop-color="#3B82F6"/>
-        <stop offset="100%" stop-color="#1D4ED8"/>
+        <stop offset="100%" stop-color="#3B82F6"/>
       </linearGradient>
 
-      <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-        <feGaussianBlur stdDeviation="10.24" result="blur"/>
+      <filter id="frescoGlow" x="-20%" y="-20%" width="140%" height="140%">
+        <feGaussianBlur stdDeviation="7.68" result="blur"/>
         <feComposite in="SourceGraphic" in2="blur" operator="over"/>
       </filter>
     </defs>
 
-    <!-- Outer Card Background -->
-    <rect width="512" height="512" rx="112.64" fill="url(#bgGrad)"/>
+    <rect width="512" height="512" fill="#0B132B"/>
+
     
-    <!-- Outer Glow Ring -->
-    <rect x="2" y="2" width="508" height="508" rx="112.64" fill="none" stroke="#00F0FF" stroke-opacity="0.25" stroke-width="2"/>
+      <!-- ICON ONLY LAYOUT -->
+      <g transform="translate(76.8, 76.8) scale(0.8959999999999999)">
+        <!-- Main Fluid Flow Curve (F Stem + Top Swirl + Middle Wing) -->
+        <path d="M 90,60 
+                 C 150,30 250,25 320,50 
+                 C 260,85 190,95 150,110 
+                 C 200,125 280,120 330,150 
+                 C 260,185 180,185 140,210 
+                 L 115,350 
+                 C 105,375 75,370 70,345 
+                 C 65,300 70,180 90,60 Z" 
+              fill="url(#frescoFluidGrad)" 
+              filter="url(#frescoGlow)"/>
 
-    <!-- Content Group with optional Maskable Safe-Zone Inset -->
-    <g transform="translate(0, 0) scale(1)">
-      <!-- Quantum Grid Particles -->
-      <circle cx="100" cy="120" r="4" fill="#00F0FF" opacity="0.6"/>
-      <circle cx="120" cy="180" r="6" fill="#3B82F6" opacity="0.7"/>
-      <circle cx="150" cy="240" r="5" fill="#00F0FF" opacity="0.8"/>
-      <circle cx="130" cy="320" r="7" fill="#60A5FA" opacity="0.9"/>
-      <circle cx="180" cy="380" r="5" fill="#00F0FF" opacity="0.7"/>
-      <circle cx="240" cy="420" r="6" fill="#3B82F6" opacity="0.6"/>
+        <path d="M 120,75 
+                 C 170,50 250,55 300,75 
+                 C 250,95 180,105 140,120 Z" 
+              fill="#E0F2FE" opacity="0.4"/>
 
-      <!-- Main Fluid Flow Letter F -->
-      <path d="M 120 100 
-               C 220 80, 360 90, 420 130 
-               C 340 160, 240 160, 180 180
-               C 180 220, 280 210, 360 240
-               C 290 270, 220 270, 180 300
-               L 180 410 
-               C 180 430, 160 440, 140 430
-               C 120 420, 120 390, 120 370
-               Z" 
-            fill="url(#fluidGrad)" 
-            filter="url(#glow)"/>
+        <!-- SPH Particles (Mobile Nodes) Constellation -->
+        <circle cx="35" cy="310" r="14" fill="#00F0FF"/>
+        <circle cx="50" cy="270" r="10" fill="#22D3EE"/>
+        <circle cx="25" cy="230" r="8" opacity="0.8" fill="#38BDF8"/>
+        <circle cx="45" cy="180" r="12" fill="#06B6D4"/>
+        <circle cx="60" cy="130" r="9" opacity="0.9" fill="#00F0FF"/>
+        <circle cx="75" cy="80" r="7" opacity="0.7" fill="#60A5FA"/>
 
-      <path d="M 140 115 
-               C 210 100, 320 110, 370 140 
-               C 310 155, 230 155, 180 170
-               L 180 115 Z" 
-            fill="#E0F2FE" 
-            opacity="0.35"/>
-
-      <!-- Particle SPH Nodes -->
-      <circle cx="420" cy="130" r="10" fill="#00F0FF" filter="url(#glow)"/>
-      <circle cx="360" cy="240" r="8" fill="#38BDF8" filter="url(#glow)"/>
-      <circle cx="370" cy="140" r="5" fill="#FFFFFF"/>
-    </g>
+        <circle cx="345" cy="55" r="11" fill="#00F0FF" filter="url(#frescoGlow)"/>
+        <circle cx="365" cy="80" r="7" fill="#38BDF8"/>
+        <circle cx="345" cy="155" r="9" fill="#00F0FF" filter="url(#frescoGlow)"/>
+        <circle cx="365" cy="175" r="6" fill="#60A5FA"/>
+      </g>
+    
   </svg>
