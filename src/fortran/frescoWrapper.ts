@@ -3,7 +3,7 @@ import { promisify } from 'util';
 import fs from 'fs';
 import path from 'path';
 import { FRESCODeckConfig, SimulationOutput, AngularDataPoint, SMatrixElement, SimulationSummary } from '../types/fresco';
-import { generateFrescoDeck, parseFort16Output, parseFrescoOutCrossSections } from '../physics/frescoParser';
+import { generateFrescoDeck, parseFrescoDeck, parseFort16Output, parseFrescoOutCrossSections } from '../physics/frescoParser';
 
 const execAsync = promisify(exec);
 
@@ -38,8 +38,10 @@ export interface FortranRunResult {
 }
 
 const SOURCE_DIR = path.join(process.cwd(), 'src', 'source');
-const FRESCO_BIN = path.join(SOURCE_DIR, 'fresco');
-const SFRESCO_BIN = path.join(SOURCE_DIR, 'sfresco');
+// gfortran on Windows (MinGW) appends .exe to the output name
+const EXE_SUFFIX = process.platform === 'win32' ? '.exe' : '';
+const FRESCO_BIN = path.join(SOURCE_DIR, `fresco${EXE_SUFFIX}`);
+const SFRESCO_BIN = path.join(SOURCE_DIR, `sfresco${EXE_SUFFIX}`);
 
 /**
   * Checks system status for Fortran compiler and compiled binaries.
@@ -91,11 +93,11 @@ export async function compileFortranSources(): Promise<{ success: boolean; log: 
     return { success: false, log: `Fortran source directory not found at ${SOURCE_DIR}` };
   }
 
-  const compileCmd = `gfortran -O3 -std=legacy -w -o ${FRESCO_BIN} ` +
+  const compileCmd = `gfortran -O3 -std=legacy -w -o "${FRESCO_BIN}" ` +
     `globx7.f frxx0.f frxx1.f frxx2.f frxx3.f frxx4.f frxx5.f frxx6.f frxx7a.f frxx7b.f frxx8.f coulfg.f ` +
     `frxx9.f frxx10.f frxx11.f frxx13.f frxx16.f frxx17.f lapack.f cdc.f cpu_time.f fresco.f nagstub.f`;
 
-  const sfrescoCompileCmd = `gfortran -O3 -std=legacy -w -o ${SFRESCO_BIN} ` +
+  const sfrescoCompileCmd = `gfortran -O3 -std=legacy -w -o "${SFRESCO_BIN}" ` +
     `globx7.f frxx0.f frxx1.f frxx2.f frxx3.f frxx4.f frxx5.f frxx6.f frxx7a.f frxx7b.f frxx8.f coulfg.f ` +
     `frxx9.f frxx10.f frxx11.f frxx13.f frxx16.f frxx17.f lapack.f cdc.f cpu_time.f sfresco.f nagstub.f minuit.f`;
 
@@ -142,6 +144,9 @@ export async function runFortranFresco(
   const deckText = typeof deckContentOrConfig === 'string'
     ? deckContentOrConfig
     : generateFrescoDeck(deckContentOrConfig);
+  const projectileSpin = typeof deckContentOrConfig === 'string'
+    ? parseFrescoDeck(deckContentOrConfig).partitions[0]?.projectile.spin ?? 0
+    : deckContentOrConfig.partitions[0]?.projectile.spin ?? 0;
 
   // Create isolated execution directory to prevent race conditions
   const runId = `run_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
@@ -194,9 +199,10 @@ export async function runFortranFresco(
         ? fs.readFileSync(frescoOutPath, 'utf-8')
         : stdoutData;
 
-      // Parse fort.16 angular distribution data
-      let angularDistribution: AngularDataPoint[] = [];
-      if (fort16Raw) {
+      // Standard output has absolute elastic cross sections (fort.16 holds only sigma/Rutherford
+      // for charged particles), so read it first and fall back to the fort.* tables.
+      let angularDistribution: AngularDataPoint[] = parseFrescoOutCrossSections(frescoOutRaw, projectileSpin);
+      if (angularDistribution.length === 0 && fort16Raw) {
         angularDistribution = parseFort16Output(fort16Raw);
       }
 
@@ -218,10 +224,6 @@ export async function runFortranFresco(
         }
       }
 
-      if (angularDistribution.length === 0 && frescoOutRaw) {
-        angularDistribution = parseFrescoOutCrossSections(frescoOutRaw);
-      }
-
       // Cleanup run directory
       try {
         fs.rmSync(runDir, { recursive: true, force: true });
@@ -240,14 +242,19 @@ export async function runFortranFresco(
         exitCode: code,
       };
 
-      // Extract cross sections from fresco.out if available
+      // Extract integrated cross sections from fresco.out, e.g.
+      // "0CUMULATIVE REACTION cross section = 902.19370" ("CUMULATIVE  ELASTIC" only for neutral projectiles)
       if (frescoOutRaw) {
-        const reactMatch = frescoOutRaw.match(/TOTAL REACTION CROSS SECTION\s*=\s*([\d\.\+E\-]+)/i);
+        const reactMatch = frescoOutRaw.match(/CUMULATIVE\s+REACTION cross section\s*=\s*([\d.+E-]+)/i);
         if (reactMatch) summary.totalReactionCrossSection = parseFloat(reactMatch[1]);
 
-        const elastMatch = frescoOutRaw.match(/TOTAL ELASTIC CROSS SECTION\s*=\s*([\d\.\+E\-]+)/i);
+        const elastMatch = frescoOutRaw.match(/CUMULATIVE\s+ELASTIC cross section\s*=\s*([\d.+E-]+)/i);
         if (elastMatch) summary.totalElasticCrossSection = parseFloat(elastMatch[1]);
       }
+
+      // FRESCO reports input/numerical problems on stdout and stops with exit code 0, e.g.
+      // "Step size HCM 0.05000 is too large: REDUCE TO < 0.02163, so STOP!"
+      const stopLine = frescoOutRaw.split('\n').find((l) => /\bSTOP!?\s*$/.test(l.trim()));
 
       const output: SimulationOutput = {
         angularDistribution,
@@ -265,8 +272,15 @@ export async function runFortranFresco(
         fort16: fort16Raw,
       };
 
+      // A run without an angular distribution is a failure, not an empty result
+      const error = stopLine
+        ? `FRESCO stopped: ${stopLine.trim()}`
+        : angularDistribution.length === 0
+          ? `FRESCO produced no cross sections (exit code ${code}). ${stderrData.trim().split('\n')[0] || ''}`.trim()
+          : undefined;
+
       resolve({
-        success: code === 0 || angularDistribution.length > 0,
+        success: !error,
         engineUsed: 'Native Fortran (gfortran)',
         exitCode: code,
         output,
@@ -275,6 +289,7 @@ export async function runFortranFresco(
         fort16Raw,
         frescoOutRaw,
         fort57Raw,
+        error,
       });
     });
 

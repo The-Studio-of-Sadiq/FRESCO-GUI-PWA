@@ -72,6 +72,9 @@ export default function App() {
           localStorage.setItem('fresco_saved_runs', JSON.stringify(updatedRuns));
           return;
         }
+        if (data.error) {
+          console.warn('Native FRESCO run failed, using TypeScript engine instead:', data.error);
+        }
       }
 
       // Fallback to TS engine if API unfulfilled
