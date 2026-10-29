@@ -1,0 +1,199 @@
+ FRESCO - FRES 3.5: Coupled Reaction Channels
+ Assuming NAMELIST input.
+
+ nalpha : n + alpha                                                              
+
+   0.100  10.000   0.500   0.000   0.000   0.000   0.000   0.000   0.000   0.000
+
+ Centre-of-mass Range is    102 * 0.1000 fm., Maximum at  10.00 fm., Interpolating NL forms every  0.50 fm.
+ Non - locality width is      4 * 0.1000 fm., Maximum of   0.30 fm., Centred at  0.00 fm.
+ 2-Nucleon Separation of      0 * 0.5000 fm., Maximum of   0.00 fm., Minimum at  0.00 fm.
+ Maximum single particle bins of 10.0000 fm.
+               M,Mint =          101         101
+
+
+ Range of total J is     0.0 <= J <=     3.0 (at least     0.0) and Absorbtion =>    -1.0000 mb.
+ Dry Run = F, CC set limits =  0  0, Relativistic kinematics =  , Both/Far/Near Analyses =  1                     
+
+ Cross Sections (and up to T0 for 0=projectile) for Theta from  50.0 to 180.0 in steps of 20.0 degrees, DGAM=0,  Coordinates = 0 (Mads)
+
+ Lower Radial Cutoff = maximum of -1.60*L*h &       0.0 fm.,  Lower Cutoff for Couplings =   0.0  fm.
+
+
+ Iterate Couplings between   0 and   0 times, to  0.000 % if sooner.                                          
+  Block solved exactly =   0 chs., with Pade = 0 & Isocen =  =0, NOSOL = F, initwf =  0
+  NL quadrature with   18 Gaussian points, Calculate multipoles up to     9 from   0
+  M-transfers for lp+lt greater than or equal to  6, Angular Integration Cutoff below  2.7778 %
+
+
+ Trace switches are :  CHANS =  1, LISTCC =  0, TRENEG =  1, CDETR =  0, SMATS =  2, XSTABL =  0, NLPL =  0
+
+                       WAVES =  0, LAMPL =  0, VEFF =  0, KFUS =  0, WDISK =  0, BPM =  0, MELFIL =  0
+
+                       CDCC =  0, NFUS =  0
+
+ Using unit mass = 1.000000 amu and 1/fine-structure constant = 137.03599 ( 1.000000 * true ) with hc = 197.32705 MeV.fm,
+  thus 2*amu/hbar^2 = 0.0478450 = 1/20.9008 and Coulomb constant = 0.1574855 so e^2 = 1.43997, and nuclear magneton= 0.1261183
+
+ Now pre-scan input and save to file 3
+
+
+
+ *********** PARTITION NUMBER  1 ******************************************************************************************
+
+   PROJ=neutron    MASS=  1.0000 Z=   0.0,        # STATES=    1T, TARG=Alpha    MASS=  4.0000 Z=   2.0,     Q-VALUE =   0.0000 MEV.
+
+     1:  J= 0.5+ (B# 1), E=  0.0000, K= 0.5              Potl#  1       J= 0.0+ (B# 1), E=  0.0000, K= 0.0    
+
+
+ ************************************************************************************************************************************
+
+ The following POTENTIALS are defined :
+
+  KP#       TYPE      IT    SHAPE      at     V1        r1        a1        V2        r2        a2        A-in     A-used
+
+
+                                            A#1       A#2        r0c       ac                                                h @ 1
+    1    0=Coulomb       0=CHARGE (WS)  1     1.000     0.000    2.0000    0.0000    0.0000    0.0000     0.000     1.000   0.10000
+
+    1    1=Volume        0=Woods-Saxon  2   43.0000    2.0000    0.7000    0.0000    2.0000    0.7500     0.000     1.000
+
+    1    3=Projtl S.O.   0=Woods-Saxon  3   10.0000    1.5000    0.3500    0.0000    2.0000    0.7500     0.000     1.000
+
+ Incoming partition  1 in excitation state # 1,   Laboratory Energy given for partition  1 Nucleus 1 in Excitation pair 1
+
+0Lab. ENERGY ranges :
+
+   from    1.00000     to   0.00000     in     0 intervals
+   from    0.00000     to   0.00000     in     0 intervals
+   from    0.00000     to   0.00000     in     0 intervals
+
+ Largest real,imaginary parts of any form factor at R=    9.00 are   1.60E-01  0.00E+00 MeV
+ Finished all Couplings @    2.59499974E-03           3
+
+ Symmetric Hamiltonian
+1***********************************************************************************************************************************
+************************************************************************************************************************************
+
+        INCOMING neutron  ;    LABORATORY neutron  ENERGY =   1.0000     MeV.
+
+ ***********************************************************************************************************************************
+ ***********************************************************************************************************************************
+
+ Allocate arrays for            2  channels, of which            1  need wfs.
+
+ ######################################################################################################################
+ #                                                                                                                    #
+ # Total SPIN and PARITY =     0.5 +,      1 channels,    0 in 1st block.  Rmin & Coul turning =    0.0    0.0 fm.  #
+ #                                                                                                                    #
+ ######################################################################################################################
+
+
+
+    C Projectl Target   #   EX.   (L  Proj) J  + Targ = Jtotal     E-cm      Re K     Re Eta     RM*K            CH
+    1 neutron  Alpha    #    1: I   0 0.5    0.5  0.0     0.5     0.80000   0.17499   0.00000    1.7499  -0.49200  -0.08906 1 1 1   1
+   S-matrix    1 =    0.60082  -0.79938 for L=    0, J=    0.5 channel on core I =   0.0 from L=    0,  Acc. loss =  0.0 D.
+ Elastic phase shift   1 =  -26.536   0.000 deg. for the L =    0, J =    0.5 channel.
+       0.5  0.60082007 -0.79938429i: elastic S-matrix  @@      0.00  0   0 F  0
+ Reaction Xsec     0.5+/ 0 @ 1 =   0.000#, Out:   0.000#
+
+
+ Total SPIN, PARITY =     0.5 -,      1 chs,      0 cc.  Rmin & Coul turning =    0.0    0.0
+   S-matrix    1 =    0.98360   0.18035 for L=    1, J=    0.5 channel on core I =   0.0 from L=    1,  Acc. loss =  0.0 D.
+ Elastic phase shift   1 =    5.195   0.000 deg. for the L =    1, J =    0.5 channel.
+       0.5  0.98360248  0.18035011i: elastic S-matrix  @@      0.00  0   0 F  0
+ Reaction Xsec     0.5-/ 1 @ 1 =   0.000#, Out:   0.000#
+
+
+ Total SPIN, PARITY =     1.5 +,      1 chs,      0 cc.  Rmin & Coul turning =    0.1    8.1
+   S-matrix    1 =    1.00000   0.00217 for L=    2, J=    1.5 channel on core I =   0.0 from L=    2,  Acc. loss =  0.0 D.
+ Elastic phase shift   1 =    0.062   0.000 deg. for the L =    2, J =    1.5 channel.
+       1.5  0.99999766  0.00216548i: elastic S-matrix  @@      0.00  0   0 F  0
+ Reaction Xsec     1.5+/ 2 @ 1 =   0.000#, Out:   0.000#
+
+
+ Total SPIN, PARITY =     1.5 -,      1 chs,      0 cc.  Rmin & Coul turning =    0.1    8.1
+   S-matrix    1 =    0.12779   0.99180 for L=    1, J=    1.5 channel on core I =   0.0 from L=    1,  Acc. loss =  0.0 D.
+ Elastic phase shift   1 =   41.329   0.000 deg. for the L =    1, J =    1.5 channel.
+       1.5  0.12778912  0.99180136i: elastic S-matrix  @@      0.00  0   0 F  0
+ Reaction Xsec     1.5-/ 1 @ 1 =   0.000#, Out:   0.000#
+
+
+ Total SPIN, PARITY =     2.5 +,      1 chs,      0 cc.  Rmin & Coul turning =    0.3   14.0
+   S-matrix    1 =    1.00000   0.00259 for L=    2, J=    2.5 channel on core I =   0.0 from L=    2,  Acc. loss =  0.0 D.
+ Elastic phase shift   1 =    0.074   0.000 deg. for the L =    2, J =    2.5 channel.
+       2.5  0.99999666  0.00258611i: elastic S-matrix  @@      0.00  0   0 F  0
+ Reaction Xsec     2.5+/ 2 @ 1 =   0.000#, Out:   0.000#
+
+
+ Total SPIN, PARITY =     2.5 -,      1 chs,      0 cc.  Rmin & Coul turning =    0.3   14.0
+   S-matrix    1 =    1.00000   0.00003 for L=    3, J=    2.5 channel on core I =   0.0 from L=    3,  Acc. loss =  0.0 D.
+ Elastic phase shift   1 =    0.001   0.000 deg. for the L =    3, J =    2.5 channel.
+       2.5  1.00000000  0.00003398i: elastic S-matrix  @@      0.00  0   0 F  0
+ Reaction Xsec     2.5-/ 3 @ 1 =   0.000#, Out:   0.000#
+
+
+ Total SPIN, PARITY =     3.5 +,      1 chs,      0 cc.  Rmin & Coul turning =    0.4   19.8
+   S-matrix    1 =    1.00000   0.00000 for L=    4, J=    3.5 channel on core I =   0.0 from L=    4,  Acc. loss =  0.0 D.
+ Elastic phase shift   1 =    0.000   0.000 deg. for the L =    4, J =    3.5 channel.
+       3.5  1.00000000  0.00000048i: elastic S-matrix  @@      0.00  0   0 F  0
+ Reaction Xsec     3.5+/ 4 @ 1 =   0.000#, Out:   0.000#
+
+
+ Total SPIN, PARITY =     3.5 -,      1 chs,      0 cc.  Rmin & Coul turning =    0.4   19.8
+   S-matrix    1 =    1.00000   0.00004 for L=    3, J=    3.5 channel on core I =   0.0 from L=    3,  Acc. loss =  0.0 D.
+ Elastic phase shift   1 =    0.001   0.000 deg. for the L =    3, J =    3.5 channel.
+       3.5  1.00000000  0.00003546i: elastic S-matrix  @@      0.00  0   0 F  0
+ Reaction Xsec     3.5-/ 3 @ 1 =   0.000#, Out:   0.000#
+
+ Finished all CC sets @    4.04599961E-03
+0CUMULATIVE REACTION cross section                 =    0.00000  <L> =     3.23  <L**2> =     10.6
+0CUMULATIVE  TOTAL   cross section                 = 4432.20142  <L> =     1.31  <L**2> =      1.9
+0CUMULATIVE  ELASTIC cross section                 = 4432.20142  <L> =     1.31  <L**2> =      1.9
+0CUMULATIVE outgoing cross sections in partition 1 :    0.00000
+0Cumulative ABSORBTION by Imaginary Potentials     =    0.00000  <L> =     3.23  <L**2> =     10.6
+   Fusion for specific neutron  M-states :    0.000000    0.000000
+0CUMULATIVE OUTGOING cross section                 =    0.00000
+ To convert to S-factors (MeV.mb = keV.b),  multiply by  8.0000E-01
+
+
+ CROSS SECTIONS FOR OUTGOING neutron  & Alpha    in state #   1 with spins & parities 0.5  + &  0.0  +;  0
+
+    50.00 deg.: X-S =   286.779475 mb/sr,
++                                         REAC   2.5059E-12 mb
+    70.00 deg.: X-S =   182.524341 mb/sr,
+    90.00 deg.: X-S =   179.528080 mb/sr,
+   110.00 deg.: X-S =   298.050729 mb/sr,
+   130.00 deg.: X-S =   501.550889 mb/sr,
+   150.00 deg.: X-S =   712.080694 mb/sr,
+   170.00 deg.: X-S =   844.616755 mb/sr,
+                                           Integrated 3811.2542 mb, over [  50.000, 180.000] at     1.0000 MeV 
+ Finished all xsecs @    4.49199975E-03
+
+  The following files have been created:
+   3:local copy of User input.            6:standard output.                   
+   7:elastic  S-matrix elements.         13:total cross sections/state.        
+  34:input optical potentials.           38:cross sections for each J/pi.      
+  39:cross sections for each Ecm.        40:all cross sectns. for each Elab.   
+  45:scat phase shift as E functions.    56:Fusion for each Jtotal.            
+  89:.                                  
+
+ PARAMETERS : MAXQRN   MFNL   MLOC  LMAX1 MCLIST
+    ALLOWED :      1      1      3     23      5
+    REQUIRED:      0      0      3      5      2
+
+
+ ACCURACY ANALYSIS at     1.000 MeV :
+
+  Elastic h*k = 0.017 so OK       compared with 0.200
+
+   Real(S-el) > 0.01 first at J =       0.5
+   Real(S-el) > 0.10 first at J =       0.5
+   Real(S-el) > 0.50 first at J =       0.5
+   Real(S-el) > 0.90 first at J =       0.5
+   Real(S-el) > 0.99 first at J =       1.5
+   R-turn =    19.80 fm    at J =       3.5
+
+ Forward-angle excitation cut off below   0.000 deg by max JT =       3.5
+                              and below   0.000 deg by max R.
+

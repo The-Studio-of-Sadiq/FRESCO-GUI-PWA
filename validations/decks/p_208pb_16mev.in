@@ -1,0 +1,18 @@
+Proton Elastic Scattering on Pb-208 at 16.0 MeV
+NAMELIST
+ &FRESCO hcm=0.05 rmatch=25
+     jtmin=0.0 jtmax=40.5 absend=-1
+     thmin=10 thmax=170 thinc=2
+     iter=0 chans=1 smats=2 xstabl=1 kqmax=1
+     elab(1)=16 /   ! rmax=35 lmax=40
+
+ &PARTITION namep='p' massp=1 zp=1 nex=1 namet='208Pb' masst=208 zt=82 qval=0 /   ! p + 208Pb
+ &STATES jp=0.5 bandp=1 ep=0 cpot=1 jt=0 bandt=1 et=0 /   ! Ground State 0+
+ &partition /
+
+ &pot kp=1 at=208 ap=0 rc=1.24 v=52.5 rv=1.211 av=0.69 w=2.5 rw=1.211 aw=0.69 wd=8.2 wdr=1.28 wda=0.55 vso=5.9 rso=1.01 aso=0.63 /   ! Chapel Hill 89 Optical Model
+ &pot /
+
+ &overlap /
+
+ &coupling /
