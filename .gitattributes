@@ -1,0 +1,3 @@
+# Compiled FRESCO WebAssembly engine: never convert line endings
+public/fresco/* binary
+*.sh text eol=lf

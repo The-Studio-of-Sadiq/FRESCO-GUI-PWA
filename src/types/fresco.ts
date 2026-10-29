@@ -133,7 +133,7 @@ export interface SimulationSummary {
   grazingL: number;
   quarterPointAngle: number; // deg
   executionTimeMs: number;
-  engineUsed?: 'Native Fortran (gfortran)' | 'TypeScript High-Speed Physics Engine';
+  engineUsed?: 'Native Fortran (gfortran)' | 'Fortran FRESCO (WebAssembly)' | 'TypeScript High-Speed Physics Engine';
   exitCode?: number | null;
 }
 

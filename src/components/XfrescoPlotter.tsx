@@ -105,9 +105,11 @@ export const XfrescoPlotter: React.FC<XfrescoPlotterProps> = ({ output, onExport
           </span>
         </div>
         <span className="text-[10px] font-semibold text-slate-300 uppercase tracking-wider hidden sm:inline">
-          {summary.engineUsed?.includes('Fortran')
-            ? '⚡ Native Fortran Executable (Full Coupled-Channels Physics)'
-            : '⚠️ JS Browser Fallback Approximation'}
+          {summary.engineUsed?.includes('WebAssembly')
+            ? '⚡ Official Fortran in Browser (Full Coupled-Channels Physics)'
+            : summary.engineUsed?.includes('Fortran')
+              ? '⚡ Native Fortran Executable (Full Coupled-Channels Physics)'
+              : '⚠️ JS Browser Fallback Approximation'}
         </span>
       </div>
 

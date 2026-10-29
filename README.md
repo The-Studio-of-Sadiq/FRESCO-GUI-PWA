@@ -10,6 +10,7 @@ This platform bridges classical Fortran computational physics with modern web vi
 
 - **Interactive Input Deck Generator**: Namelist-based form builder and code editor supporting elastic scattering, coupled-channels, inelastic excitation, and transfer reactions (`&FRESCO` namelist generation).
 - **Native Fortran Execution Engine**: Runs compiled `fresco` and `sfresco` binaries directly on the server host or container using `gfortran`.
+- **Fortran in the Browser (WebAssembly)**: The official FRESCO Fortran is also compiled to WebAssembly (`public/fresco/`), so the app runs real FRESCO calculations with no server: on static hosting such as Vercel, and offline once the PWA is installed.
 - **Multi-Channel XMGrace (`fort.16`) Parser**: Robust parser capable of reading multi-state XMGrace outputs, separating angular distributions across reaction channels (elastic ground state vs. excited states), and filtering directives.
 - **Interactive Data Visualization**: Responsive plots using Recharts with logarithmic/linear scaling, center-of-mass angular distribution curves, Rutherford ratio plots, and coupling diagrams.
 - **Built-in Benchmark Decks**: Presets including elastic scattering (`nalpha.nin`), coupled-channels inelastic scattering (`dexcc.nin`), and Coulomb excitation (`be11.nin`).
@@ -23,7 +24,7 @@ Before building or running the project, ensure you have:
 
 - **Node.js**: v18.0.0 or higher
 - **npm** or **bun** / **yarn**
-- **GNU Fortran Compiler (`gfortran`)**: Required for local native compilation of FRESCO source files (Ubuntu/Debian: `sudo apt-get install gfortran`).
+- **GNU Fortran Compiler (`gfortran`)** *(Optional)*: For the native server engine (Ubuntu/Debian: `sudo apt-get install gfortran`). Without it, calculations run in the browser's WebAssembly engine.
 - **Docker** *(Optional)*: For containerized, zero-configuration reproduction.
 
 ---
@@ -69,6 +70,24 @@ docker run -p 3000:3000 fresco-simulator
 ```
 
 Access the app at `http://localhost:3000`.
+
+---
+
+## Static Deployment on Vercel (Offline PWA)
+
+The app also works as a purely static site. `vercel.json` builds only the frontend (`vite build`); with no backend, `/api/fortran/*` requests are answered in the browser (`src/utils/localApiFallback.ts`), which runs FRESCO from `public/fresco/fresco.{js,wasm}` in a Web Worker. The service worker precaches these files, so an installed PWA keeps running calculations offline. The Gemini assistant and server-side compilation need the Node server.
+
+Import the repository in Vercel; no settings or environment variables are needed.
+
+### Rebuilding the WebAssembly engine
+
+The compiled engine is committed, so this is only needed after changing the Fortran in `src/source/`. `wasm/build.sh` uses LLVM flang 23.1.4 (e.g. from conda-forge), the matching `llvm-project-23.1.4` source for the Fortran runtime, and Emscripten:
+
+```bash
+EMSDK=/path/to/emsdk FLANG=/path/to/flang LLVM_SRC=/path/to/llvm-project-23.1.4.src bash wasm/build.sh
+```
+
+Upstream flang cannot target WebAssembly yet, so the script compiles to Win64 LLVM IR and retargets it to wasm64 (`wasm/retarget.py`), then Emscripten lowers the module to wasm32 for all browsers. `node wasm/run-node.mjs deck.in out.txt` runs a deck through the built engine; its cross sections match native gfortran to the printed precision (about 1e-6) for the presets and the `src/test` decks `nalpha`, `be11` and `xetazr`.
 
 ---
 
