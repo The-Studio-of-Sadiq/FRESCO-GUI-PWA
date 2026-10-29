@@ -2,8 +2,11 @@ import { exec, spawn } from 'child_process';
 import { promisify } from 'util';
 import fs from 'fs';
 import path from 'path';
-import { FRESCODeckConfig, SimulationOutput, AngularDataPoint, SMatrixElement, SimulationSummary } from '../types/fresco';
-import { generateFrescoDeck, parseFrescoDeck, parseFort16Output, parseFrescoOutCrossSections } from '../physics/frescoParser';
+import { FRESCODeckConfig } from '../types/fresco';
+import { generateFrescoDeck } from '../physics/frescoParser';
+import { buildFortranRunResult, failedFortranRun, FortranRunResult, FRESCO_OUTPUT_FILES, projectileSpinOf } from './frescoResult';
+
+export type { FortranRunResult } from './frescoResult';
 
 const execAsync = promisify(exec);
 
@@ -21,20 +24,6 @@ export interface FortranEngineStatus {
 export interface FortranRunOptions {
   workingDir?: string;
   timeoutMs?: number;
-}
-
-export interface FortranRunResult {
-  success: boolean;
-  engineUsed: 'Native Fortran (gfortran)' | 'TypeScript High-Speed Physics Engine';
-  exitCode: number | null;
-  output: SimulationOutput;
-  stdout: string;
-  stderr: string;
-  fort16Raw: string;
-  frescoOutRaw: string;
-  fort57Raw?: string;
-  searchOutRaw?: string;
-  error?: string;
 }
 
 const SOURCE_DIR = path.join(process.cwd(), 'src', 'source');
@@ -144,9 +133,7 @@ export async function runFortranFresco(
   const deckText = typeof deckContentOrConfig === 'string'
     ? deckContentOrConfig
     : generateFrescoDeck(deckContentOrConfig);
-  const projectileSpin = typeof deckContentOrConfig === 'string'
-    ? parseFrescoDeck(deckContentOrConfig).partitions[0]?.projectile.spin ?? 0
-    : deckContentOrConfig.partitions[0]?.projectile.spin ?? 0;
+  const projectileSpin = projectileSpinOf(deckContentOrConfig);
 
   // Create isolated execution directory to prevent race conditions
   const runId = `run_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
@@ -185,43 +172,12 @@ export async function runFortranFresco(
 
     child.on('close', (code) => {
       clearTimeout(timer);
-      const executionTimeMs = performance.now() - startTime;
 
       // Read output files produced by Fortran FRESCO
-      const fort16Path = path.join(runDir, 'fort.16');
-      const fort16Raw = fs.existsSync(fort16Path) ? fs.readFileSync(fort16Path, 'utf-8') : '';
-
-      const fort57Path = path.join(runDir, 'fort.57');
-      const fort57Raw = fs.existsSync(fort57Path) ? fs.readFileSync(fort57Path, 'utf-8') : '';
-
-      const frescoOutPath = path.join(runDir, 'fresco.out');
-      const frescoOutRaw = fs.existsSync(frescoOutPath)
-        ? fs.readFileSync(frescoOutPath, 'utf-8')
-        : stdoutData;
-
-      // Standard output has absolute elastic cross sections (fort.16 holds only sigma/Rutherford
-      // for charged particles), so read it first and fall back to the fort.* tables.
-      let angularDistribution: AngularDataPoint[] = parseFrescoOutCrossSections(frescoOutRaw, projectileSpin);
-      if (angularDistribution.length === 0 && fort16Raw) {
-        angularDistribution = parseFort16Output(fort16Raw);
-      }
-
-      // If fort.16 is empty, check other standard fort.* angular cross section files
-      if (angularDistribution.length === 0) {
-        const altFortFiles = ['fort.13', 'fort.14', 'fort.17', 'fort.38', 'fort.39', 'fort.200'];
-        for (const file of altFortFiles) {
-          const filePath = path.join(runDir, file);
-          if (fs.existsSync(filePath)) {
-            const altRaw = fs.readFileSync(filePath, 'utf-8');
-            if (altRaw) {
-              const parsedAlt = parseFort16Output(altRaw);
-              if (parsedAlt.length >= 2) {
-                angularDistribution = parsedAlt;
-                break;
-              }
-            }
-          }
-        }
+      const files: Record<string, string> = {};
+      for (const name of FRESCO_OUTPUT_FILES) {
+        const filePath = path.join(runDir, name);
+        if (fs.existsSync(filePath)) files[name] = fs.readFileSync(filePath, 'utf-8');
       }
 
       // Cleanup run directory
@@ -231,97 +187,21 @@ export async function runFortranFresco(
         // ignore
       }
 
-      const summary: SimulationSummary = {
-        totalReactionCrossSection: 0,
-        totalElasticCrossSection: 0,
-        rutherfordRadius: 1.25,
-        grazingL: 0,
-        quarterPointAngle: 0,
-        executionTimeMs,
-        engineUsed: 'Native Fortran (gfortran)',
+      resolve(buildFortranRunResult({
+        engine: 'Native Fortran (gfortran)',
+        executable: FRESCO_BIN,
         exitCode: code,
-      };
-
-      // Extract integrated cross sections from fresco.out, e.g.
-      // "0CUMULATIVE REACTION cross section = 902.19370" ("CUMULATIVE  ELASTIC" only for neutral projectiles)
-      if (frescoOutRaw) {
-        const reactMatch = frescoOutRaw.match(/CUMULATIVE\s+REACTION cross section\s*=\s*([\d.+E-]+)/i);
-        if (reactMatch) summary.totalReactionCrossSection = parseFloat(reactMatch[1]);
-
-        const elastMatch = frescoOutRaw.match(/CUMULATIVE\s+ELASTIC cross section\s*=\s*([\d.+E-]+)/i);
-        if (elastMatch) summary.totalElasticCrossSection = parseFloat(elastMatch[1]);
-      }
-
-      // FRESCO reports input/numerical problems on stdout and stops with exit code 0, e.g.
-      // "Step size HCM 0.05000 is too large: REDUCE TO < 0.02163, so STOP!"
-      const stopLine = frescoOutRaw.split('\n').find((l) => /\bSTOP!?\s*$/.test(l.trim()));
-
-      const output: SimulationOutput = {
-        angularDistribution,
-        potentials: [],
-        wavefunctions: [],
-        sMatrix: [],
-        summary,
-        logs: [
-          `[Native Fortran Wrapper] Executed ${FRESCO_BIN}`,
-          `[Native Fortran Wrapper] Exit Code: ${code}`,
-          `[Native Fortran Wrapper] Execution Time: ${executionTimeMs.toFixed(1)} ms`,
-          `[Fortran stdout] Captured ${stdoutData.length} bytes`,
-        ],
-        frescoOut: frescoOutRaw,
-        fort16: fort16Raw,
-      };
-
-      // A run without an angular distribution is a failure, not an empty result
-      const error = stopLine
-        ? `FRESCO stopped: ${stopLine.trim()}`
-        : angularDistribution.length === 0
-          ? `FRESCO produced no cross sections (exit code ${code}). ${stderrData.trim().split('\n')[0] || ''}`.trim()
-          : undefined;
-
-      resolve({
-        success: !error,
-        engineUsed: 'Native Fortran (gfortran)',
-        exitCode: code,
-        output,
         stdout: stdoutData,
         stderr: stderrData,
-        fort16Raw,
-        frescoOutRaw,
-        fort57Raw,
-        error,
-      });
+        files,
+        executionTimeMs: performance.now() - startTime,
+        projectileSpin,
+      }));
     });
 
     child.on('error', (err) => {
       clearTimeout(timer);
-      resolve({
-        success: false,
-        engineUsed: 'Native Fortran (gfortran)',
-        exitCode: -1,
-        output: {
-          angularDistribution: [],
-          potentials: [],
-          wavefunctions: [],
-          sMatrix: [],
-          summary: {
-            totalReactionCrossSection: 0,
-            totalElasticCrossSection: 0,
-            rutherfordRadius: 0,
-            grazingL: 0,
-            quarterPointAngle: 0,
-            executionTimeMs: performance.now() - startTime,
-          },
-          logs: [`[Error] ${err.message}`],
-          frescoOut: '',
-          fort16: '',
-        },
-        stdout: stdoutData,
-        stderr: err.message,
-        fort16Raw: '',
-        frescoOutRaw: '',
-        error: err.message,
-      });
+      resolve(failedFortranRun('Native Fortran (gfortran)', err.message, performance.now() - startTime, stdoutData));
     });
   });
 }

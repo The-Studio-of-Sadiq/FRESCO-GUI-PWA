@@ -10,3 +10,6 @@ coverage/
 *.o
 src/source/fresco
 src/source/sfresco
+
+# WebAssembly build intermediates (output in public/fresco is committed)
+wasm/build/
