@@ -1,0 +1,33 @@
+{
+  "engine": "public/fresco/fresco.wasm (flang 23.1.4 + Emscripten)",
+  "runs": {
+    "16o_208pb_heavyion.in": {
+      "exitCode": 0,
+      "stderr": "Fortran STOP"
+    },
+    "be11.nin": {
+      "exitCode": 0,
+      "stderr": "Fortran STOP"
+    },
+    "d_12c_transfer.in": {
+      "exitCode": 0,
+      "stderr": "Fortran STOP"
+    },
+    "n_56fe_fastneutron.in": {
+      "exitCode": 0,
+      "stderr": "Fortran STOP"
+    },
+    "nalpha.nin": {
+      "exitCode": 0,
+      "stderr": "Fortran STOP"
+    },
+    "p_208pb_16mev.in": {
+      "exitCode": 0,
+      "stderr": "Fortran STOP"
+    },
+    "xetazr.nin": {
+      "exitCode": 0,
+      "stderr": "Fortran STOP"
+    }
+  }
+}

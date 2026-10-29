@@ -1,0 +1,19 @@
+Oxygen-16 on Lead-208 Elastic Scattering at 129.5 MeV
+NAMELIST
+! hcm reduced from 0.05 to 0.021 fm: FRESCO requires hcm * k < 0.2
+ &FRESCO hcm=0.021 rmatch=30
+     jtmin=0.0 jtmax=90 absend=-1
+     thmin=5 thmax=90 thinc=1
+     iter=0 chans=1 smats=2 xstabl=1
+     elab(1)=129.5 /   ! rmax=40 lmax=90
+
+ &PARTITION namep='16O' massp=16 zp=8 nex=1 namet='208Pb' masst=208 zt=82 qval=0 /   ! 16O + 208Pb
+ &STATES jp=0 bandp=1 ep=0 cpot=1 jt=0 bandt=1 et=0 /   ! Ground State 0+
+ &partition /
+
+ &pot kp=1 at=208 ap=0 rc=1.2 v=100 rv=1.22 av=0.5 w=40 rw=1.22 aw=0.5 wd=0 wdr=1.22 wda=0.5 vso=0 rso=1 aso=0.5 /   ! E18 Woods-Saxon Heavy-Ion Potential
+ &pot /
+
+ &overlap /
+
+ &coupling /

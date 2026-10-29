@@ -1,0 +1,35 @@
+{
+  "server": "https://fresco-gui-pwa.onrender.com",
+  "compiler": "gfortran (Docker image, Alpine)",
+  "fetched": "2026-10-29T00:15:09.636Z",
+  "runs": {
+    "16o_208pb_heavyion.in": {
+      "exitCode": 0,
+      "stderr": ""
+    },
+    "be11.nin": {
+      "exitCode": 0,
+      "stderr": ""
+    },
+    "d_12c_transfer.in": {
+      "exitCode": null,
+      "stderr": "Program received signal SIGSEGV: Segmentation fault - invalid memory reference."
+    },
+    "n_56fe_fastneutron.in": {
+      "exitCode": 0,
+      "stderr": ""
+    },
+    "nalpha.nin": {
+      "exitCode": 0,
+      "stderr": ""
+    },
+    "p_208pb_16mev.in": {
+      "exitCode": 0,
+      "stderr": ""
+    },
+    "xetazr.nin": {
+      "exitCode": null,
+      "stderr": "Program received signal SIGSEGV: Segmentation fault - invalid memory reference."
+    }
+  }
+}

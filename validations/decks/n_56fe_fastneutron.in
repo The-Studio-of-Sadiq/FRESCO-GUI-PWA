@@ -1,0 +1,18 @@
+Fast Neutron Elastic Scattering on 56Fe at 14.1 MeV
+NAMELIST
+ &FRESCO hcm=0.05 rmatch=20
+     jtmin=0.0 jtmax=30.5 absend=-1
+     thmin=5 thmax=175 thinc=2.5
+     iter=0 chans=1 smats=2 xstabl=1 kqmax=1
+     elab(1)=14.1 /   ! rmax=28 lmax=30
+
+ &PARTITION namep='n' massp=1 zp=0 nex=1 namet='56Fe' masst=56 zt=26 qval=0 /   ! n + 56Fe
+ &STATES jp=0.5 bandp=1 ep=0 cpot=1 jt=0 bandt=1 et=0 /   ! Ground State 0+
+ &partition /
+
+ &pot kp=1 at=56 ap=0 rc=0.0001 v=48.2 rv=1.21 av=0.66 w=1.8 rw=1.21 aw=0.66 wd=8.5 wdr=1.24 wda=0.56 vso=5.8 rso=1 aso=0.59 /   ! Koning-Delaroche Neutron Potential for Fe-56
+ &pot /
+
+ &overlap /
+
+ &coupling /
