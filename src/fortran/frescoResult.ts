@@ -1,5 +1,5 @@
 import { AngularDataPoint, FRESCODeckConfig, SimulationOutput, SimulationSummary } from '../types/fresco';
-import { parseFort16Output, parseFrescoDeck, parseFrescoOutCrossSections } from '../physics/frescoParser';
+import { parseFort16Output, parseFrescoDeck, parseFrescoOutChannels, parseFrescoOutCrossSections } from '../physics/frescoParser';
 
 // Turns the raw output of a FRESCO run into the app's result shape. Shared by the
 // native gfortran wrapper (Node) and the WebAssembly worker (browser), so both
@@ -89,8 +89,10 @@ export function buildFortranRunResult(run: RawFrescoRun): FortranRunResult {
   // "Step size HCM 0.05000 is too large: REDUCE TO < 0.02163, so STOP!"
   const stopLine = frescoOutRaw.split('\n').find((l) => /\bSTOP!?\s*$/.test(l.trim()));
 
+  const channels = parseFrescoOutChannels(frescoOutRaw, run.projectileSpin);
   const output: SimulationOutput = {
     angularDistribution,
+    channels: channels.length > 0 ? channels : undefined,
     potentials: [],
     wavefunctions: [],
     sMatrix: [],

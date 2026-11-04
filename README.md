@@ -97,7 +97,7 @@ Upstream flang cannot target WebAssembly yet, so the script compiles to Win64 LL
 ├── Dockerfile               # Multi-stage build (gfortran + Node production image)
 ├── server.ts                # Express backend & Vite middleware / API routes
 ├── src/
-│   ├── components/          # React UI components (Plotter, Deck Editor, Coupling Diagram)
+│   ├── components/          # React UI: Simulate form & results plot, input deck editor, help
 │   ├── fortran/             # Server-side execution wrapper & binary management
 │   ├── physics/             # FRESCO input generator & XMGrace (fort.16) parser
 │   ├── source/              # Fortran source files & compiled fresco binaries

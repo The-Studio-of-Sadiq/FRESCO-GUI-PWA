@@ -137,8 +137,18 @@ export interface SimulationSummary {
   exitCode?: number | null;
 }
 
+/** Angular distribution of one outgoing channel (elastic, inelastic or transfer). */
+export interface AngularChannel {
+  label: string;
+  points: AngularDataPoint[];
+  /** Cross section integrated over the computed angular range, as printed by FRESCO. */
+  integratedMb?: number;
+}
+
 export interface SimulationOutput {
   angularDistribution: AngularDataPoint[];
+  /** Every outgoing channel, elastic first (FRESCO runs only). */
+  channels?: AngularChannel[];
   potentials: RadialPotentialPoint[];
   wavefunctions: RadialWavefunction[];
   sMatrix: SMatrixElement[];
