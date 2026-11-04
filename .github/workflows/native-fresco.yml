@@ -1,0 +1,53 @@
+# Builds the production Docker image and runs every validation deck through its native
+# gfortran FRESCO, failing on any crash (e.g. the SIGSEGV seen at exit on Alpine).
+# Also checks the WebAssembly engine against the committed native references.
+name: Native FRESCO
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  docker-native:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the Docker image
+        run: docker build -t fresco-app .
+
+      - name: Run every validation deck through the native binary
+        run: |
+          status=0
+          for deck in validations/decks/*; do
+            name=$(basename "$deck")
+            code=0
+            docker run --rm -i -w /tmp fresco-app /app/src/source/fresco < "$deck" > out.txt 2> err.txt || code=$?
+            points=$(grep -c "X-S =" out.txt || true)
+            echo "$name: exit $code, $points cross-section lines"
+            if [ "$code" -ne 0 ] || grep -q "SIGSEGV\|Segmentation fault\|runtime error" err.txt; then
+              cat err.txt
+              status=1
+            fi
+          done
+          exit $status
+
+      - name: Server answers MCP and JSON requests
+        run: |
+          docker run -d --name app -p 3000:3000 fresco-app
+          for i in $(seq 1 30); do curl -sf localhost:3000/api/health && break; sleep 1; done
+          curl -sf -X POST localhost:3000/api/run -H 'Content-Type: application/json' -d '{"example":"d_12c_transfer","maxPoints":10}' | grep -q '"success":true'
+          curl -sf -X POST localhost:3000/mcp -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' \
+            -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | grep -q run_fresco
+
+  wasm-parity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: WebAssembly FRESCO matches native references
+        run: npm run validate

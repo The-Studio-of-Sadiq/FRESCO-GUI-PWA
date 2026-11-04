@@ -2,7 +2,8 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { FRESCODeckConfig, SimulationOutput, SavedRun } from './types/fresco';
 import { PRESET_REACTIONS } from './physics/presets';
 import { runFrescoSimulation } from './physics/frescoEngine';
-import { generateFrescoDeck } from './physics/frescoParser';
+import { potentialCurves } from './physics/fort17';
+import { generateFrescoDeck, parseFrescoDeck } from './physics/frescoParser';
 
 import { AppTab, Header } from './components/Header';
 import { SetupPanel } from './components/SetupPanel';
@@ -26,8 +27,7 @@ function downloadText(filename: string, text: string, type = 'text/plain') {
 }
 
 /** Runs FRESCO (in-browser WebAssembly or server); falls back to the TypeScript model and says why. */
-async function runFresco(config: FRESCODeckConfig): Promise<{ output: SimulationOutput; fallbackReason: string | null }> {
-  const deckText = generateFrescoDeck(config);
+async function runFresco(config: FRESCODeckConfig, deckText: string): Promise<{ output: SimulationOutput; fallbackReason: string | null }> {
   let reason: string | null = null;
   try {
     const response = await fetch('/api/fortran/run-fresco', {
@@ -36,7 +36,11 @@ async function runFresco(config: FRESCODeckConfig): Promise<{ output: Simulation
       body: JSON.stringify({ deckText, config }),
     });
     const data = await response.json().catch(() => null);
-    if (response.ok && data?.success && data.output) return { output: data.output, fallbackReason: null };
+    if (response.ok && data?.success && data.output) {
+      // FRESCO does not print the potentials: draw them from the same parameters
+      const output: SimulationOutput = data.output.potentials?.length ? data.output : { ...data.output, potentials: potentialCurves(config) };
+      return { output, fallbackReason: null };
+    }
     reason = data?.error || `request failed (${response.status})`;
   } catch (err: any) {
     reason = err?.message || String(err);
@@ -54,6 +58,9 @@ export default function App() {
   const [runError, setRunError] = useState<string | null>(null);
   const [savedRuns, setSavedRuns] = useState<SavedRun[]>([]);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  // An input deck you edited or uploaded: FRESCO runs it exactly as written.
+  const [customDeck, setCustomDeck] = useState<string | null>(null);
+  const deckText = customDeck ?? generateFrescoDeck(deckConfig);
   const resultsRef = useRef<HTMLDivElement>(null);
 
   const saveRuns = (runs: SavedRun[]) => {
@@ -65,11 +72,11 @@ export default function App() {
     }
   };
 
-  const run = useCallback(async (config: FRESCODeckConfig, { remember = true } = {}) => {
+  const run = useCallback(async (config: FRESCODeckConfig, { remember = true, deck = generateFrescoDeck(config) } = {}) => {
     setIsRunning(true);
     setRunError(null);
     try {
-      const result = await runFresco(config);
+      const result = await runFresco(config, deck);
       setOutput(result.output);
       setFallbackReason(result.fallbackReason);
       if (remember) {
@@ -78,8 +85,9 @@ export default function App() {
           timestamp: new Date().toISOString(),
           title: config.title,
           deckConfig: config,
-          output: result.output,
-          formattedInputText: generateFrescoDeck(config),
+          // wavefunctions are large and can be recomputed: keep them out of browser storage
+          output: { ...result.output, wavefunctions: [] },
+          formattedInputText: deck,
         };
         setSavedRuns((prev) => {
           const runs = [entry, ...prev].slice(0, HISTORY_LIMIT);
@@ -111,16 +119,29 @@ export default function App() {
 
   const runCurrent = () => {
     setActiveTab('simulate');
-    run(deckConfig);
+    run(deckConfig, { deck: deckText });
     // On narrow screens the results sit below the form: bring them into view.
     if (window.matchMedia('(max-width: 1023px)').matches) {
       requestAnimationFrame(() => resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
     }
   };
 
+  // Form edits: the deck is generated from the form again.
   const changeConfig = (config: FRESCODeckConfig) => {
     setDeckConfig(config);
     setPresetId(null);
+    setCustomDeck(null);
+  };
+
+  // Deck edits: keep the text as written; the form shows what it can read from it.
+  const changeDeck = (text: string) => {
+    setCustomDeck(text);
+    setPresetId(null);
+    try {
+      setDeckConfig(parseFrescoDeck(text));
+    } catch {
+      // the form keeps its last readable state
+    }
   };
 
   const loadPreset = (id: string) => {
@@ -128,6 +149,7 @@ export default function App() {
     if (!preset) return;
     setDeckConfig(preset.config);
     setPresetId(preset.id);
+    setCustomDeck(null);
     run(preset.config);
   };
 
@@ -142,7 +164,7 @@ export default function App() {
         onRun={runCurrent}
         isRunning={isRunning}
         onOpenHistory={() => setIsHistoryOpen(true)}
-        onDownloadDeck={() => downloadText('fresco.in', generateFrescoDeck(deckConfig))}
+        onDownloadDeck={() => downloadText('fresco.in', deckText)}
       />
 
       <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 py-5">
@@ -154,7 +176,20 @@ export default function App() {
 
         {activeTab === 'simulate' && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-            <div className="lg:col-span-5">
+            <div className="lg:col-span-5 space-y-4">
+              {customDeck !== null && (
+                <div className="rounded-lg border border-cyan-900 bg-cyan-950/40 px-3 py-2 text-xs text-cyan-200 flex flex-wrap items-center justify-between gap-2">
+                  <span>Runs use your own input deck, exactly as written. Changing this form replaces it.</span>
+                  <span className="flex gap-3">
+                    <button type="button" className="underline cursor-pointer" onClick={() => setActiveTab('deck')}>
+                      Open deck
+                    </button>
+                    <button type="button" className="underline cursor-pointer" onClick={() => setCustomDeck(null)}>
+                      Use the form
+                    </button>
+                  </span>
+                </div>
+              )}
               <SetupPanel
                 config={deckConfig}
                 onChange={changeConfig}
@@ -175,16 +210,27 @@ export default function App() {
         <div hidden={activeTab !== 'fit'}>
           <FitPanel
             config={deckConfig}
+            deckText={deckText}
+            isCustomDeck={customDeck !== null}
             onApply={(fitted) => {
-              changeConfig(fitted);
+              if (fitted.deckText) changeDeck(fitted.deckText);
+              else changeConfig(fitted.config);
               setActiveTab('simulate');
               window.scrollTo({ top: 0 });
-              run(fitted);
+              run(fitted.config, { deck: fitted.deckText ?? generateFrescoDeck(fitted.config) });
             }}
           />
         </div>
 
-        {activeTab === 'deck' &&<FrescoDeckEditor config={deckConfig} onChangeConfig={changeConfig} onRunSimulation={runCurrent} />}
+        {activeTab === 'deck' && (
+          <FrescoDeckEditor
+            deckText={deckText}
+            isCustom={customDeck !== null}
+            onDeckChange={changeDeck}
+            onDiscard={() => setCustomDeck(null)}
+            onRunSimulation={runCurrent}
+          />
+        )}
 
         {activeTab === 'help' && <HelpPanel />}
       </main>
@@ -198,6 +244,9 @@ export default function App() {
         onLoadRun={(saved) => {
           setDeckConfig(saved.deckConfig);
           setPresetId(null);
+          // Restore the exact deck that ran if it was not the form's own
+          const generated = generateFrescoDeck(saved.deckConfig);
+          setCustomDeck(saved.formattedInputText && saved.formattedInputText !== generated ? saved.formattedInputText : null);
           setOutput(saved.output);
           setFallbackReason(null);
           setActiveTab('simulate');

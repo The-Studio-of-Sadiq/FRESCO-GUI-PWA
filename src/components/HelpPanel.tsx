@@ -40,11 +40,12 @@ export const HelpPanel: React.FC = () => (
 
     <Card title="Fitting to data">
       <p>
-        <strong className="text-slate-100">Fit</strong> runs SFRESCO: FRESCO with the MINUIT minimiser, also compiled to WebAssembly. Paste
-        or upload measured cross sections (angle, value, error) for any channel, as mb/sr or as a ratio to Rutherford for elastic
-        scattering. Tick the optical-potential terms, spectroscopic factors or data normalisation to vary, and press Fit. MIGRAD adjusts
-        them to minimise χ². You get the fitted values with MINUIT errors, χ²/N before and after, and the fitted curve over your data.{' '}
-        <strong className="text-slate-100">Use fitted values</strong> puts them into the setup.
+        <strong className="text-slate-100">Fit</strong> runs SFRESCO: FRESCO with the MINUIT minimiser, also compiled to WebAssembly. Add
+        one or more datasets: angular distributions at any energy and channel (mb/sr, or σ/σ_Ruth for elastic), excitation functions at a
+        fixed angle, integrated or total reaction cross sections against energy, or phase shifts. Tick what to vary: optical-potential
+        terms, spectroscopic factors, dataset normalisations, R-matrix poles. Optional bounds are available too. MIGRAD minimises χ², or a
+        χ² scan steps one parameter through a range. You get fitted values with MINUIT errors, χ²/N before and after, and the theory over
+        your data. <strong className="text-slate-100">Use fitted values</strong> puts them into the setup, or into your own deck.
       </p>
       <p className="mt-2">Terms that are zero in the setup have no card in the FRESCO input and cannot be varied; give them a starting value first.</p>
     </Card>
@@ -67,6 +68,34 @@ export const HelpPanel: React.FC = () => (
         namelist that FRESCO receives. You can edit it, upload a deck, or download it to run FRESCO yourself. Options that the Simulate form
         has no field for are not kept when the deck is read back.
       </p>
+    </Card>
+
+    <Card title="For agents and scripts">
+      <p>
+        Bots can run FRESCO and SFRESCO through this site without the user interface. Nothing to install and no key needed.
+      </p>
+      <ul className="mt-2 space-y-1.5">
+        <li>
+          <strong className="text-slate-100">MCP server</strong> (Streamable HTTP):{' '}
+          <code className="text-cyan-300 break-all">{`${window.location.origin}/mcp`}</code>. Tools: list_examples, get_example,
+          generate_deck, run_fresco, fit_sfresco, chi2_scan. Add it as a remote MCP server in Claude, ChatGPT, Cursor or any MCP client.
+        </li>
+        <li>
+          <strong className="text-slate-100">JSON API</strong>: <code className="text-cyan-300">POST /api/run</code>,{' '}
+          <code className="text-cyan-300">POST /api/fit</code>, <code className="text-cyan-300">GET /api/examples</code>, described in{' '}
+          <a href="/openapi.json" className="text-cyan-400 hover:text-cyan-300 underline-offset-2 hover:underline">
+            /openapi.json
+          </a>
+          .
+        </li>
+        <li>
+          <strong className="text-slate-100">Guide for language models</strong>:{' '}
+          <a href="/llms.txt" className="text-cyan-400 hover:text-cyan-300 underline-offset-2 hover:underline">
+            /llms.txt
+          </a>
+          . Browsers with WebMCP also get the same tools from this page, running locally.
+        </li>
+      </ul>
     </Card>
 
     <Card title="Manuals and references">

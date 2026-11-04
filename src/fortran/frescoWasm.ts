@@ -1,6 +1,17 @@
 import { FRESCODeckConfig } from '../types/fresco';
 import { generateFrescoDeck } from '../physics/frescoParser';
-import { DECK_FILE, FitDataset, FitParameter, FitResult, SEARCH_COMMANDS, SEARCH_FILE, buildSearchFile, parseSfrescoOutput } from '../physics/sfresco';
+import {
+  DECK_FILE,
+  FIT_COMMANDS,
+  FitDataset,
+  FitResult,
+  FitVariable,
+  SEARCH_FILE,
+  buildSearchFile,
+  parseSfrescoOutput,
+  parseSfrescoScan,
+  scanCommands,
+} from '../physics/sfresco';
 import { buildFortranRunResult, failedFortranRun, FortranRunResult, FRESCO_OUTPUT_FILES, projectileSpinOf } from './frescoResult';
 
 // Browser-side runner for the official FRESCO and SFRESCO Fortran compiled to
@@ -108,22 +119,40 @@ export interface SfrescoRun extends FitResult {
   elapsedMs: number;
 }
 
-/** Runs an SFRESCO chi-square search (MINUIT MIGRAD) of the given parameters against one dataset. */
-export async function runSfrescoWasm(config: FRESCODeckConfig, parameters: FitParameter[], dataset: FitDataset): Promise<SfrescoRun> {
-  const start = performance.now();
-  const searchFile = buildSearchFile(config, parameters, dataset);
+async function runSfresco(config: FRESCODeckConfig, deckText: string, variables: FitVariable[], datasets: FitDataset[], commands: string) {
+  const searchFile = buildSearchFile(config, deckText, variables, datasets);
   const response = await runJob({
     program: 'sfresco',
-    input: SEARCH_COMMANDS,
-    inputFiles: { [SEARCH_FILE]: searchFile, [DECK_FILE]: generateFrescoDeck(config) },
+    input: commands,
+    inputFiles: { [SEARCH_FILE]: searchFile, [DECK_FILE]: deckText },
     outputFiles: [],
     timeoutMs: FIT_TIMEOUT_MS,
   });
   if (response.error) throw new Error(response.error);
-  const result = parseSfrescoOutput(response.stdout, parameters.length);
-  if (result.values.length !== parameters.length) {
-    const tail = `${response.stdout}\n${response.stderr}`.trim().split('\n').slice(-4).join(' ').trim();
-    throw new Error(`SFRESCO did not report fitted values${tail ? `: ${tail}` : ''}`);
-  }
-  return { ...result, stdout: response.stdout, searchFile, elapsedMs: performance.now() - start };
+  return { searchFile, stdout: response.stdout, stderr: response.stderr };
+}
+
+const tail = (stdout: string, stderr: string) => `${stdout}\n${stderr}`.trim().split('\n').slice(-4).join(' ').trim();
+
+/** Runs an SFRESCO chi-square search (MINUIT MIGRAD) of the variables against the datasets. */
+export async function runSfrescoWasm(config: FRESCODeckConfig, deckText: string, variables: FitVariable[], datasets: FitDataset[]): Promise<SfrescoRun> {
+  const start = performance.now();
+  const { searchFile, stdout, stderr } = await runSfresco(config, deckText, variables, datasets, FIT_COMMANDS);
+  const result = parseSfrescoOutput(stdout, variables.length);
+  if (result.values.length !== variables.length) throw new Error(`SFRESCO did not report fitted values: ${tail(stdout, stderr)}`);
+  return { ...result, stdout, searchFile, elapsedMs: performance.now() - start };
+}
+
+/** χ²/N as one variable (1-based index) is stepped through a range, the others fixed (SFRESCO `scan`). */
+export async function runSfrescoScan(
+  config: FRESCODeckConfig,
+  deckText: string,
+  variables: FitVariable[],
+  datasets: FitDataset[],
+  scan: { index: number; from: number; to: number; step: number },
+) {
+  const { stdout, stderr } = await runSfresco(config, deckText, variables, datasets, scanCommands(scan.index, scan.from, scan.to, scan.step));
+  const points = parseSfrescoScan(stdout);
+  if (points.length === 0) throw new Error(`SFRESCO did not report a scan: ${tail(stdout, stderr)}`);
+  return { points, stdout };
 }

@@ -1,37 +1,20 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { AlertCircle, Check, Copy, Download, Play, Upload } from 'lucide-react';
-import { FRESCODeckConfig } from '../types/fresco';
-import { generateFrescoDeck, parseFrescoDeck } from '../physics/frescoParser';
+import React, { useState } from 'react';
+import { Check, Copy, Download, Play, RotateCcw, Upload } from 'lucide-react';
 import { Button, Card } from './ui';
 
 interface FrescoDeckEditorProps {
-  config: FRESCODeckConfig;
-  onChangeConfig: (newConfig: FRESCODeckConfig) => void;
+  /** The deck FRESCO will run: your edited deck, or the one generated from the Simulate form. */
+  deckText: string;
+  /** True when deckText is your own deck rather than the form's. */
+  isCustom: boolean;
+  onDeckChange: (text: string) => void;
+  /** Throw away the edited deck and go back to the one generated from the form. */
+  onDiscard: () => void;
   onRunSimulation: () => void;
 }
 
-export const FrescoDeckEditor: React.FC<FrescoDeckEditorProps> = ({ config, onChangeConfig, onRunSimulation }) => {
-  const [deckText, setDeckText] = useState<string>(() => generateFrescoDeck(config));
+export const FrescoDeckEditor: React.FC<FrescoDeckEditorProps> = ({ deckText, isCustom, onDeckChange, onDiscard, onRunSimulation }) => {
   const [copied, setCopied] = useState(false);
-  const [parseError, setParseError] = useState<string | null>(null);
-  // The config this editor produced last: regenerating the text from it would rewrite what is being typed.
-  const ownConfig = useRef<FRESCODeckConfig | null>(null);
-
-  useEffect(() => {
-    if (config !== ownConfig.current) setDeckText(generateFrescoDeck(config));
-  }, [config]);
-
-  const handleTextChange = (text: string) => {
-    setDeckText(text);
-    try {
-      const parsed = parseFrescoDeck(text);
-      setParseError(null);
-      ownConfig.current = parsed;
-      onChangeConfig(parsed);
-    } catch (err: any) {
-      setParseError(err.message || 'Could not read this deck.');
-    }
-  };
 
   const handleCopy = () => {
     navigator.clipboard.writeText(deckText);
@@ -56,7 +39,7 @@ export const FrescoDeckEditor: React.FC<FrescoDeckEditorProps> = ({ config, onCh
           <label className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm text-slate-300 hover:text-white hover:bg-slate-800 cursor-pointer focus-within:ring-2 focus-within:ring-cyan-400">
             <Upload className="w-4 h-4" />
             <span className="hidden sm:inline">Upload</span>
-            <input type="file" accept=".in,.nin,.txt,.dat" className="sr-only" onChange={(e) => e.target.files?.[0]?.text().then(handleTextChange)} />
+            <input type="file" accept=".in,.nin,.txt,.dat" className="sr-only" onChange={(e) => e.target.files?.[0]?.text().then(onDeckChange)} />
           </label>
           <Button variant="ghost" onClick={handleCopy}>
             {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
@@ -74,19 +57,25 @@ export const FrescoDeckEditor: React.FC<FrescoDeckEditorProps> = ({ config, onCh
       }
     >
       <div className="space-y-3">
-        <p className="text-xs text-slate-400">
-          The FRESCO namelist input sent to the Fortran engine. Edits update the Simulate form; settings the form has no field for are not
-          kept.
-        </p>
-        {parseError && (
-          <div role="alert" className="flex items-center gap-2 rounded-lg border border-rose-900 bg-rose-950/40 px-3 py-2 text-xs text-rose-200">
-            <AlertCircle className="w-4 h-4 shrink-0" />
-            {parseError}
+        {isCustom ? (
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-cyan-900 bg-cyan-950/40 px-3 py-2 text-xs text-cyan-200">
+            <span>
+              Your own deck: FRESCO runs it exactly as written, including options the Simulate form has no field for. The form shows what it
+              can read from it; changing the form replaces this deck.
+            </span>
+            <Button variant="ghost" onClick={onDiscard} className="text-xs">
+              <RotateCcw className="w-3.5 h-3.5" />
+              Use the form's deck
+            </Button>
           </div>
+        ) : (
+          <p className="text-xs text-slate-400">
+            Generated from the Simulate form. Edit or upload any FRESCO namelist input and it will run exactly as written.
+          </p>
         )}
         <textarea
           value={deckText}
-          onChange={(e) => handleTextChange(e.target.value)}
+          onChange={(e) => onDeckChange(e.target.value)}
           rows={24}
           wrap="off"
           spellCheck={false}
