@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { Play } from 'lucide-react';
+import { Play, Plus, Trash2 } from 'lucide-react';
 import { FRESCODeckConfig, Nucleus, OpticalPotential, Partition } from '../types/fresco';
 import { PRESET_REACTIONS } from '../physics/presets';
 import { OPTICAL_MODEL_LIBRARY } from '../physics/opticalModels';
 import { Button, Card, NumField, SelectField, TextField } from './ui';
+import { ChannelDiagram } from './ChannelDiagram';
 
 interface SetupPanelProps {
   config: FRESCODeckConfig;
@@ -27,10 +28,13 @@ export const SetupPanel: React.FC<SetupPanelProps> = ({ config, onChange, preset
   const entrance = config.partitions[0];
   const pot = config.potentials[Math.min(potIndex, config.potentials.length - 1)];
   const preset = PRESET_REACTIONS.find((p) => p.id === presetId);
-  const hasChannels =
-    config.partitions.length > 1 || config.states.length > 1 || config.boundStates.length > 0 || config.couplings.length > 0;
+  const selectedPot = config.potentials.indexOf(pot);
+  const potentialUsers = (idx: number) => [
+    ...config.states.filter((s) => s.potentialIndex === idx).map((s) => s.name),
+    ...config.boundStates.filter((b) => b.potentialIndex === idx).map((b) => b.name),
+  ];
 
-  const set = <K extends keyof FRESCODeckConfig>(key: K, value: FRESCODeckConfig[K]) => onChange({ ...config, [key]: value });
+  const set =<K extends keyof FRESCODeckConfig>(key: K, value: FRESCODeckConfig[K]) => onChange({ ...config, [key]: value });
 
   // Edits to the entrance partition; spins are mirrored into its first state.
   const updateNucleus = (which: 'projectile' | 'target', patch: Partial<Nucleus>) => {
@@ -50,6 +54,36 @@ export const SetupPanel: React.FC<SetupPanelProps> = ({ config, onChange, preset
     const idx = config.potentials.indexOf(pot);
     set('potentials', config.potentials.map((p, i) => (i === idx ? { ...p, ...patch } : p)));
   };
+
+  const addPotential = () => {
+    const copy: OpticalPotential = { ...pot, id: `pot_${Date.now()}`, name: `Potential ${config.potentials.length + 1}` };
+    set('potentials', [...config.potentials, copy]);
+    setPotIndex(config.potentials.length);
+  };
+
+  // Only unused potentials can be deleted; later indices shift down by one.
+  const deletePotential = () => {
+    const idx = selectedPot;
+    const shift = (i: number) => (i > idx ? i - 1 : i);
+    onChange({
+      ...config,
+      potentials: config.potentials.filter((_, i) => i !== idx),
+      states: config.states.map((s) => ({ ...s, potentialIndex: shift(s.potentialIndex) })),
+      boundStates: config.boundStates.map((b) => ({ ...b, potentialIndex: shift(b.potentialIndex) })),
+    });
+    setPotIndex(Math.max(0, idx - 1));
+  };
+
+  const assignStatePotential = (stateId: string, potentialIndex: number) =>
+    set('states', config.states.map((s) => (s.id === stateId ? { ...s, potentialIndex } : s)));
+  const assignBoundPotential = (boundId: string, potentialIndex: number) =>
+    set('boundStates', config.boundStates.map((b) => (b.id === boundId ? { ...b, potentialIndex } : b)));
+
+  const potentialOptions = config.potentials.map((p, i) => (
+    <option key={p.id} value={i}>
+      {i + 1}. {p.name}
+    </option>
+  ));
 
   const applyGlobalModel = (modelId: string) => {
     const model = OPTICAL_MODEL_LIBRARY.find((m) => m.id === modelId);
@@ -112,14 +146,33 @@ export const SetupPanel: React.FC<SetupPanelProps> = ({ config, onChange, preset
       {pot && (
         <Card title="Optical potential" actions={<span className="text-xs text-slate-500">Woods-Saxon, R = r₀·A<sub>t</sub><sup>1/3</sup></span>}>
           <div className="space-y-3">
-            {config.potentials.length > 1 && (
-              <SelectField label="Potential" value={String(config.potentials.indexOf(pot))} onChange={(v) => setPotIndex(Number(v))}>
-                {config.potentials.map((p, i) => (
-                  <option key={p.id} value={i}>
-                    {i + 1}. {p.name}
-                  </option>
-                ))}
-              </SelectField>
+            <div className="flex items-end gap-2">
+              <div className="flex-1 min-w-0">
+                <SelectField label="Potential" value={String(selectedPot)} onChange={(v) => setPotIndex(Number(v))}>
+                  {potentialOptions}
+                </SelectField>
+              </div>
+              <Button onClick={addPotential} title="Add a potential, starting from a copy of this one" aria-label="Add potential" className="px-2.5 h-[34px]">
+                <Plus className="w-4 h-4" />
+                <span className="hidden sm:inline">Add</span>
+              </Button>
+              <Button
+                onClick={deletePotential}
+                disabled={config.potentials.length <= 1 || potentialUsers(selectedPot).length > 0}
+                title={
+                  potentialUsers(selectedPot).length > 0
+                    ? `Used by ${potentialUsers(selectedPot).join(', ')}: assign another potential to them first`
+                    : 'Delete this potential'
+                }
+                aria-label="Delete potential"
+                className="px-2.5 h-[34px]"
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            </div>
+            <TextField label="Name" value={pot.name} onChange={(name) => updatePotential({ name })} />
+            {potentialUsers(selectedPot).length === 0 && (
+              <p className="text-xs text-amber-300">Not used yet: assign it to a state under Channels & couplings.</p>
             )}
             <SelectField label="Fill from a global model" value="" onChange={applyGlobalModel}>
               <option value="" disabled>
@@ -151,58 +204,45 @@ export const SetupPanel: React.FC<SetupPanelProps> = ({ config, onChange, preset
         </Card>
       )}
 
-      {hasChannels && (
-        <Card
-          title="Channels & couplings"
-          actions={
-            <button type="button" onClick={onOpenDeck} className="text-xs text-cyan-400 hover:text-cyan-300 cursor-pointer">
-              Edit in input deck
-            </button>
-          }
-        >
-          <ul className="space-y-2 text-sm">
-            {config.partitions.map((p, i) => (
-              <li key={p.id} className="text-slate-300">
-                <span className="text-slate-500">{i === 0 ? 'Entrance' : `Partition ${i + 1}`}:</span> {p.name}
-                {p.qValue !== 0 && <span className="text-slate-500"> · Q = {p.qValue} MeV</span>}
-                <ul className="mt-0.5 ml-4 text-xs text-slate-400 list-disc">
-                  {config.states
-                    .filter((s) => s.partitionId === p.id)
-                    .map((s) => (
-                      <li key={s.id}>
-                        {s.name}
-                        {s.excitationEnergy !== 0 && ` · ${s.excitationEnergy} MeV`} · potential {s.potentialIndex + 1}
-                      </li>
-                    ))}
-                </ul>
-              </li>
-            ))}
+      <Card
+        title="Channels & couplings"
+        actions={
+          <button type="button" onClick={onOpenDeck} className="text-xs text-cyan-400 hover:text-cyan-300 cursor-pointer">
+            Edit in input deck
+          </button>
+        }
+      >
+        <div className="space-y-3">
+          <ChannelDiagram config={config} />
+
+          <div className="space-y-2">
+            {config.partitions.map((p, pi) =>
+              config.states
+                .filter((s) => s.partitionId === p.id)
+                .map((s) => (
+                  <SelectField
+                    key={s.id}
+                    label={`${pi === 0 ? 'Entrance' : `Partition ${pi + 1}`}: ${s.name} — optical potential`}
+                    value={String(s.potentialIndex)}
+                    onChange={(v) => assignStatePotential(s.id, Number(v))}
+                  >
+                    {potentialOptions}
+                  </SelectField>
+                )),
+            )}
             {config.boundStates.map((b) => (
-              <li key={b.id} className="text-slate-300">
-                <span className="text-slate-500">Bound state:</span> {b.name}
-                <span className="text-slate-500">
-                  {' '}
-                  · BE = {b.bindingEnergy} MeV, ℓ = {b.orbitalL}, j = {b.totalJ}
-                </span>
-              </li>
+              <SelectField
+                key={b.id}
+                label={`Bound state: ${b.name} (BE ${b.bindingEnergy} MeV, ℓ = ${b.orbitalL}, j = ${b.totalJ}) — binding potential`}
+                value={String(b.potentialIndex)}
+                onChange={(v) => assignBoundPotential(b.id, Number(v))}
+              >
+                {potentialOptions}
+              </SelectField>
             ))}
-            {config.couplings.map((c) => {
-              const from = config.states.find((s) => s.id === c.fromStateId);
-              const to = config.states.find((s) => s.id === c.toStateId);
-              return (
-                <li key={c.id} className="text-slate-300">
-                  <span className="text-slate-500">{c.couplingType === 'transfer-dwba' ? 'Transfer' : 'Inelastic'}:</span>{' '}
-                  {from?.name ?? '?'} → {to?.name ?? '?'}
-                  <span className="text-slate-500">
-                    {' '}
-                    · {c.couplingType === 'transfer-dwba' ? `S = ${c.spectroscopicFactor}` : `λ = ${c.lambda}, β = ${c.beta}`}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        </Card>
-      )}
+          </div>
+        </div>
+      </Card>
 
       <details className="group bg-slate-900 border border-slate-800 rounded-xl">
         <summary className="px-4 py-3 text-sm font-semibold text-slate-100 cursor-pointer select-none list-none flex items-center justify-between">

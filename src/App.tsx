@@ -9,6 +9,7 @@ import { SetupPanel } from './components/SetupPanel';
 import { ResultsPanel } from './components/ResultsPanel';
 import { FrescoDeckEditor } from './components/FrescoDeckEditor';
 import { HelpPanel } from './components/HelpPanel';
+import { FitPanel } from './components/FitPanel';
 import { RunHistoryModal } from './components/RunHistoryModal';
 import { Footer } from './components/Footer';
 
@@ -170,7 +171,20 @@ export default function App() {
           </div>
         )}
 
-        {activeTab === 'deck' && <FrescoDeckEditor config={deckConfig} onChangeConfig={changeConfig} onRunSimulation={runCurrent} />}
+        {/* Kept mounted so pasted data and the last fit survive tab switches */}
+        <div hidden={activeTab !== 'fit'}>
+          <FitPanel
+            config={deckConfig}
+            onApply={(fitted) => {
+              changeConfig(fitted);
+              setActiveTab('simulate');
+              window.scrollTo({ top: 0 });
+              run(fitted);
+            }}
+          />
+        </div>
+
+        {activeTab === 'deck' &&<FrescoDeckEditor config={deckConfig} onChangeConfig={changeConfig} onRunSimulation={runCurrent} />}
 
         {activeTab === 'help' && <HelpPanel />}
       </main>

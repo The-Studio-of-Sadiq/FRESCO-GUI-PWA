@@ -63,10 +63,11 @@ EOF
 fi
 
 # ---- 2. FRESCO sources: Win64 IR -> wasm64 objects -------------------------
-# Same file list and order as src/source/makefile (globx7 defines the modules).
-FILES="globx7 frxx0 frxx1 frxx2 frxx3 frxx4 frxx5 frxx6 frxx7a frxx7b frxx8 coulfg frxx9
-  frxx10 frxx11 frxx13 frxx16 frxx17 lapack cdc cpu_time fresco nagstub"
-echo "[build] compiling FRESCO"
+# Same file lists and order as src/source/makefile (globx7 defines the modules).
+COMMON="globx7 frxx0 frxx1 frxx2 frxx3 frxx4 frxx5 frxx6 frxx7a frxx7b frxx8 coulfg frxx9
+  frxx10 frxx11 frxx13 frxx16 frxx17 lapack cdc cpu_time nagstub"
+FILES="$COMMON fresco sfresco minuit"
+echo "[build] compiling FRESCO and SFRESCO"
 rm -f "$BUILD"/obj/*.o "$BUILD"/mod/*.mod
 # Compile a patched copy; src/source stays the untouched upstream code.
 rm -rf "$BUILD/src" && cp -r "$ROOT/src/source" "$BUILD/src"
@@ -86,14 +87,22 @@ popd >/dev/null
 emcc $MEM64 -O2 -c "$ROOT/wasm/shims.c" -o "$BUILD/obj/shims.o"
 
 # ---- 3. Link ---------------------------------------------------------------
-echo "[build] linking WebAssembly"
-em++ -sMEMORY64=2 -O2 "$BUILD"/obj/*.o "$RTLIB" \
-  -sMODULARIZE=1 -sEXPORT_ES6=1 -sEXPORT_NAME=createFresco \
-  -sENVIRONMENT=web,worker,node -sINVOKE_RUN=0 -sEXIT_RUNTIME=1 \
-  -sALLOW_MEMORY_GROWTH=1 -sINITIAL_MEMORY=64MB -sMAXIMUM_MEMORY=4GB -sSTACK_SIZE=32MB \
-  -sFORCE_FILESYSTEM=1 -sEXPORTED_RUNTIME_METHODS=FS,callMain \
-  -Wno-deprecated \
-  -o "$OUT/fresco.js"
+# fresco: the reaction code; sfresco: chi-square searches with MINUIT.
+link() { # link <program> <export-name> <objects...>
+  local program=$1 export_name=$2
+  shift 2
+  echo "[build] linking $program"
+  em++ -sMEMORY64=2 -O2 "$@" "$BUILD/obj/shims.o" "$RTLIB" \
+    -sMODULARIZE=1 -sEXPORT_ES6=1 -sEXPORT_NAME="$export_name" \
+    -sENVIRONMENT=web,worker,node -sINVOKE_RUN=0 -sEXIT_RUNTIME=1 \
+    -sALLOW_MEMORY_GROWTH=1 -sINITIAL_MEMORY=64MB -sMAXIMUM_MEMORY=4GB -sSTACK_SIZE=32MB \
+    -sFORCE_FILESYSTEM=1 -sEXPORTED_RUNTIME_METHODS=FS,callMain \
+    -Wno-deprecated \
+    -o "$OUT/$program.js"
+}
+COMMON_OBJS=$(for f in $COMMON; do echo "$BUILD/obj/$f.o"; done)
+link fresco createFresco $COMMON_OBJS "$BUILD/obj/fresco.o"
+link sfresco createSfresco $COMMON_OBJS "$BUILD/obj/sfresco.o" "$BUILD/obj/minuit.o"
 
 ls -la "$OUT"
 echo "[build] done"

@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "validate": "node validations/compare.mjs"
+    "validate": "node validations/compare.mjs",
+    "validate:sfresco": "node validations/sfresco/check.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

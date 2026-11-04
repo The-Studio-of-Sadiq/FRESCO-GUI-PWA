@@ -3,10 +3,11 @@ import { Download, History, Play } from 'lucide-react';
 import { PWAInstallPrompt } from './PWAInstallPrompt';
 import { Button } from './ui';
 
-export type AppTab = 'simulate' | 'deck' | 'help';
+export type AppTab = 'simulate' | 'fit' | 'deck' | 'help';
 
 const TABS: { id: AppTab; label: string }[] = [
   { id: 'simulate', label: 'Simulate' },
+  { id: 'fit', label: 'Fit' },
   { id: 'deck', label: 'Input deck' },
   { id: 'help', label: 'Help' },
 ];
