@@ -6,6 +6,7 @@ import {
   BoundState,
   ChannelCoupling,
   AngularDataPoint,
+  AngularChannel,
 } from '../types/fresco';
 
 // Zero-range (d,p) stripping strength D0 (MeV fm^3/2) and finite-range parameter (fm)
@@ -754,37 +755,49 @@ export function parseFort16Output(fort16Text: string): AngularDataPoint[] {
 }
 
 /**
- * Parses the elastic angular distribution from FRESCO standard output (fresco.out).
- * Unlike fort.16, which holds only the ratio to Rutherford for charged elastic scattering,
- * stdout always gives absolute cross sections in mb/sr.
+ * Parses every outgoing channel's angular distribution from FRESCO standard output
+ * (fresco.out), in output order: the elastic channel first, then inelastic and transfer
+ * channels. Unlike fort.16, which holds only the ratio to Rutherford for charged elastic
+ * scattering, stdout always gives absolute cross sections in mb/sr.
  */
-export function parseFrescoOutCrossSections(frescoOutText: string, projectileSpin = 0): AngularDataPoint[] {
+export function parseFrescoOutChannels(frescoOutText: string, projectileSpin = 0): AngularChannel[] {
   if (!frescoOutText) return [];
 
-  const lines = frescoOutText.split('\n');
-
-  // Pattern 1: FRESCO's standard output, one block per outgoing channel, the elastic channel first:
-  //   " CROSS SECTIONS FOR OUTGOING p & 208Pb in state #   1 ..."
+  // One block per outgoing channel:
+  //   " CROSS SECTIONS FOR OUTGOING p        & 13C      in state #   1 with spins & parities 0.5  + &  0.5  +;  0"
   //   "    30.00 deg.: X-S =  8044.145719 mb/sr,          & pols = 0. -0.00648"
   //   "+                                         /R =   1.0503E+00"
+  //   "                                           Integrated   76.8314 mb, over [   0.000, 120.000] ..."
   // `/R` (ratio to Rutherford) is only printed for charged elastic channels; `pols` only with KQMAX > 0.
+  const headerPattern = /CROSS SECTIONS FOR OUTGOING\s+(\S+)\s*&\s*(\S+)\s+in state #\s*(\d+)(?:\s+with spins & parities\s+([\d.]+))?/i;
   const xsPattern = /^\s*([\d.]+)\s*deg\.\s*:\s*X-S\s*=\s*([-\d.E+]+)\s*mb\/sr(?:.*pols\s*=\s*(.*))?/i;
   const ratioPattern = /^\+.*\/R\s*=\s*([-\d.E+]+)/i;
-  const elasticBlock = 1;
-  let block = 0;
-  const points1: AngularDataPoint[] = [];
-  for (const line of lines) {
-    if (/CROSS SECTIONS FOR OUTGOING/i.test(line)) {
-      block++;
+  const integratedPattern = /Integrated\s*([-\d.E+]+)\s*mb/i;
+
+  const channels: AngularChannel[] = [];
+  let current: AngularChannel | null = null;
+  let spin = projectileSpin;
+  for (const line of frescoOutText.split('\n')) {
+    const header = line.match(headerPattern);
+    if (header) {
+      spin = header[4] !== undefined ? parseFloat(header[4]) : channels.length === 0 ? projectileSpin : 0;
+      current = { label: `${header[1]} + ${header[2]}, state ${header[3]}`, points: [] };
+      channels.push(current);
       continue;
     }
-    if (block > elasticBlock) break;
+    if (!current) continue;
 
     const ratio = line.match(ratioPattern);
-    if (ratio && points1.length > 0) {
-      const last = points1[points1.length - 1];
+    if (ratio && current.points.length > 0) {
+      const last = current.points[current.points.length - 1];
       last.ratioRutherford = parseFloat(ratio[1]);
       last.sigmaRutherford = last.ratioRutherford > 0 ? last.sigmaMb / last.ratioRutherford : 0;
+      continue;
+    }
+
+    const integrated = line.match(integratedPattern);
+    if (integrated && !isNaN(parseFloat(integrated[1]))) {
+      current.integratedMb = parseFloat(integrated[1]);
       continue;
     }
 
@@ -792,27 +805,33 @@ export function parseFrescoOutCrossSections(frescoOutText: string, projectileSpi
     if (match) {
       const angleCm = parseFloat(match[1]);
       const sigmaMb = parseFloat(match[2]);
-      // pols = T10 iT11 (Madison); analysing power of the projectile from iT11
+      // pols = T10 iT11 (Madison); analysing power of the outgoing projectile from iT11
       const pols = match[3] ? match[3].trim().split(/\s+/).map(Number) : [];
       const iT11 = pols.length >= 2 && !isNaN(pols[1]) ? pols[1] : 0;
       // Ay = <S_y>/s = iT11 * sqrt(2(s+1)/(3s)): sqrt(2) for spin 1/2, 2/sqrt(3) for spin 1
-      const ay = projectileSpin > 0 ? iT11 * Math.sqrt((2 * (projectileSpin + 1)) / (3 * projectileSpin)) : 0;
+      const ay = spin > 0 ? iT11 * Math.sqrt((2 * (spin + 1)) / (3 * spin)) : 0;
       if (!isNaN(angleCm) && !isNaN(sigmaMb) && angleCm >= 0 && angleCm <= 180 && sigmaMb >= 0) {
-        points1.push({
-          angleCm,
-          angleLab: angleCm,
-          sigmaMb,
-          sigmaRutherford: 0,
-          ratioRutherford: 1.0,
-          ay,
-        });
+        current.points.push({ angleCm, angleLab: angleCm, sigmaMb, sigmaRutherford: 0, ratioRutherford: 1.0, ay });
       }
     }
   }
+  return channels
+    .filter((c) => c.points.length > 0)
+    .map((c) => ({ ...c, points: c.points.sort((a, b) => a.angleCm - b.angleCm) }));
+}
 
-  if (points1.length >= 2) {
-    return points1.sort((a, b) => a.angleCm - b.angleCm);
+/**
+ * Parses the elastic angular distribution from FRESCO standard output (fresco.out).
+ */
+export function parseFrescoOutCrossSections(frescoOutText: string, projectileSpin = 0): AngularDataPoint[] {
+  if (!frescoOutText) return [];
+
+  const elastic = parseFrescoOutChannels(frescoOutText, projectileSpin)[0];
+  if (elastic && elastic.points.length >= 2) {
+    return elastic.points;
   }
+
+  const lines = frescoOutText.split('\n');
 
   // Pattern 2: Strict Tabular FRESCO Parser
   // Requires explicit table headers specifying BOTH an angle descriptor (THETA, ANGLE, DEG) AND a cross-section descriptor (SIGMA, X-S, CROSS, RUTH, MB/SR).

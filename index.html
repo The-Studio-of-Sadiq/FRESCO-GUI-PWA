@@ -44,20 +44,6 @@
   <body class="bg-[#0B132B] text-slate-100 font-sans antialiased selection:bg-cyan-500 selection:text-slate-900">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
-    <script>
-      if ('serviceWorker' in navigator) {
-        const registerSW = () => {
-          navigator.serviceWorker.register('/sw.js', { scope: '/' })
-            .then(reg => console.log('[PWA] Service Worker registered successfully:', reg.scope))
-            .catch(err => console.warn('[PWA] Service Worker registration failed:', err));
-        };
-        if (document.readyState === 'complete' || document.readyState === 'interactive') {
-          registerSW();
-        } else {
-          window.addEventListener('load', registerSW);
-        }
-      }
-    </script>
   </body>
 </html>
 
