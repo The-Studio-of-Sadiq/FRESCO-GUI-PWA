@@ -1,8 +1,9 @@
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
-import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
+import { handleMcpRequest } from "./server/mcp";
+import { examples, fit, run } from "./server/restApi";
 
 dotenv.config();
 
@@ -75,32 +76,30 @@ async function startServer() {
     }
   });
 
-  // Gemini AI route for FRESCO input deck generation, parameter tuning, and physics guidance
-  app.post("/api/gemini", async (req, res) => {
-    try {
-      const apiKey = process.env.GEMINI_API_KEY;
-      if (!apiKey) {
-        return res.status(400).json({ error: "GEMINI_API_KEY is not configured in environment." });
-      }
-
-      const { prompt, systemInstruction } = req.body;
-      if (!prompt) {
-        return res.status(400).json({ error: "Prompt is required." });
-      }
-
-      const ai = new GoogleGenAI({ apiKey });
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: prompt,
-        config: systemInstruction ? { systemInstruction } : undefined,
-      });
-
-      return res.json({ text: response.text });
-    } catch (err: any) {
-      console.error("Gemini API error:", err);
-      return res.status(500).json({ error: err.message || "Failed to query Gemini AI model." });
-    }
+  // Machine access: MCP (Streamable HTTP) and JSON endpoints, the same as the Vercel functions in /api
+  // Bots may call these from other origins (browser-based agents)
+  app.use(["/mcp", "/api/mcp", "/api/run", "/api/fit", "/api/examples"], (req, res, next) => {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Accept, Mcp-Session-Id, Mcp-Protocol-Version");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    if (req.method === "OPTIONS") return res.sendStatus(204);
+    next();
   });
+  const mcp = async (req: express.Request, res: express.Response) => {
+    try {
+      await handleMcpRequest(req, res, req.body);
+    } catch (err: any) {
+      console.error("MCP error:", err);
+      if (!res.headersSent) res.status(500).json({ jsonrpc: "2.0", error: { code: -32603, message: err.message || "Internal error" }, id: null });
+    }
+  };
+  app.all("/mcp", mcp);
+  app.all("/api/mcp", mcp);
+
+  const sendJson = (res: express.Response, result: { status: number; body: unknown }) => res.status(result.status).json(result.body);
+  app.get("/api/examples", (_req, res) => sendJson(res, examples()));
+  app.post("/api/run", async (req, res) => sendJson(res, await run(req.body)));
+  app.post("/api/fit", async (req, res) => sendJson(res, await fit(req.body)));
 
   // Serve PWA manifest & service worker with explicit MIME types
   app.get("/manifest.json", (_req, res) => {

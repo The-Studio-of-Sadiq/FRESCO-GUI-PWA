@@ -2,11 +2,15 @@ import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import {installLocalApiFallback} from './utils/localApiFallback';
+import {registerWebMcpTools} from './utils/webmcp';
 import './index.css';
 
 // Serve /api/* in the browser (FRESCO compiled to WebAssembly) when there is no
 // Express backend: static hosting such as Vercel, or offline use of the PWA.
 installLocalApiFallback();
+
+// Tools for in-browser agents (WebMCP), where the browser supports it
+registerWebMcpTools();
 
 // Offline support for production builds. In development the service worker would
 // cache Vite's modules and serve stale code, so remove any earlier registration.

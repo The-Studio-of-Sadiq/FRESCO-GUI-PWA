@@ -60,6 +60,23 @@ function num(value: number): string {
   return String(Number(value.toPrecision(10)));
 }
 
+/**
+ * Transfer couplings grouped by the pair of partitions they connect, in the order the
+ * deck lists their &cfp namelists (SFRESCO's `nafrac` counts in this order).
+ */
+export function groupTransfers(config: FRESCODeckConfig): ChannelCoupling[][] {
+  const partitionOf = (stateId: string) => config.states.find((s) => s.id === stateId)?.partitionId ?? '';
+  const groups = new Map<string, ChannelCoupling[]>();
+  for (const c of config.couplings.filter((x) => x.couplingType === 'transfer-dwba')) {
+    const from = partitionOf(c.fromStateId);
+    const to = partitionOf(c.toStateId);
+    if (!from || !to || from === to) continue;
+    const key = `${from}>${to}`;
+    groups.set(key, [...(groups.get(key) ?? []), c]);
+  }
+  return [...groups.values()];
+}
+
 function statesOfPartition(config: FRESCODeckConfig, partitionId: string): State[] {
   return config.states.filter((s) => s.partitionId === partitionId);
 }
@@ -114,11 +131,14 @@ export function generateFrescoDeck(config: FRESCODeckConfig): string {
   if (hcm !== config.dr) {
     lines.push(`! hcm reduced from ${num(config.dr)} to ${num(hcm)} fm: FRESCO requires hcm * k < 0.2`);
   }
+  // Inelastic couplings are solved exactly: FRESCO only includes the first `iblock`
+  // channels' couplings (states of the entrance partition come first).
+  const iblock = inelastic.length > 0 ? partitionStates[0]?.length ?? 0 : 0;
   const fresco = [
     ` &FRESCO hcm=${num(hcm)} rmatch=${num(config.rmatch)}`,
     `     jtmin=0.0 jtmax=${num(config.lmax + maxSpin)} absend=-1`,
     `     thmin=${num(config.angleStart)} thmax=${num(config.angleEnd)} thinc=${num(config.angleStep)}`,
-    `     iter=${transfers.length > 0 ? 1 : 0} chans=1 smats=2 xstabl=1${projectileSpin > 0 ? ' kqmax=1' : ''}`,
+    `     iter=${transfers.length > 0 ? 1 : 0}${iblock > 1 ? ` iblock=${iblock}` : ''} chans=1 smats=2 xstabl=1 wdisk=1${projectileSpin > 0 ? ' kqmax=1' : ''}`,
     `     elab(1)=${num(config.eLab)} /   ! rmax=${num(config.rmax)} lmax=${num(config.lmax)}`,
   ];
   lines.push(...fresco, '');
@@ -131,9 +151,15 @@ export function generateFrescoDeck(config: FRESCODeckConfig): string {
         ` nex=${states.length} namet='${nucleusName(p.target.name)}' masst=${num(p.target.massNumber)} zt=${num(p.target.chargeNumber)}` +
         ` qval=${num(p.qValue)} /   ! ${label(p.name)}`,
     );
-    states.forEach((s) => {
+    states.forEach((s, si) => {
+      // Excited target states reuse the projectile's ground state (copyp=1): a projectile
+      // state given again is a separate state for FRESCO, and target couplings would vanish.
+      const projectile =
+        si > 0 && s.projectileSpin === states[0].projectileSpin
+          ? 'copyp=1'
+          : `jp=${num(s.projectileSpin)} bandp=${p.projectile.parity} ep=0`;
       lines.push(
-        ` &STATES jp=${num(s.projectileSpin)} bandp=${p.projectile.parity} ep=0 cpot=${s.potentialIndex + 1}` +
+        ` &STATES ${projectile} cpot=${s.potentialIndex + 1}` +
           ` jt=${num(s.targetSpin)} bandt=${s.parity} et=${num(s.excitationEnergy)} /   ! ${label(s.name)}`,
       );
     });
@@ -151,32 +177,53 @@ export function generateFrescoDeck(config: FRESCODeckConfig): string {
     // FRESCO only applies `at` (the radius scale) through the Coulomb card, which it omits when rc=0;
     // a point-charge radius keeps the scale without changing the physics.
     const rc = pot.rc > 0 ? pot.rc : POINT_CHARGE_RC;
-    const parts = [
-      ` &pot kp=${kp}${shape ? ` shape=${shape}` : ''} at=${num(at)} ap=0 rc=${num(rc)}`,
-      ` v=${num(pot.V0)} rv=${num(pot.r0)} av=${num(pot.a0)}`,
-      ` w=${num(pot.W0)} rw=${num(pot.rw)} aw=${num(pot.aw)}`,
-      ` wd=${num(pot.Wd)} wdr=${num(pot.rd)} wda=${num(pot.ad)}`,
-      ` vso=${num(pot.Vso)} rso=${num(pot.rso)} aso=${num(pot.aso)}`,
-    ];
 
     // Target deformations (rotor model) for inelastic couplings that use this potential
     const target = partitions[user]?.target;
     const betaByMultipole = new Map<number, number>();
     for (const c of inelastic) {
       const from = config.states.find((s) => s.id === c.fromStateId);
-      if (from?.potentialIndex === idx && c.lambda >= 1) betaByMultipole.set(c.lambda, c.beta);
+      if (target && from?.potentialIndex === idx && c.lambda >= 1 && c.lambda <= 7) betaByMultipole.set(c.lambda, c.beta);
     }
-    for (const [lambda, beta] of target ? betaByMultipole : []) {
-      const radius = pot.r0 * Math.cbrt(target!.massNumber);
-      const coulombRadius = (pot.rc || pot.r0) * Math.cbrt(target!.massNumber);
-      parts.push(` deft(${lambda})=${num(beta * radius)}`);
-      if (target!.chargeNumber > 0) {
-        // Intrinsic Coulomb matrix element of a uniformly charged deformed sphere
-        const mn = (3 * target!.chargeNumber * beta * Math.pow(coulombRadius, lambda)) / (4 * Math.PI);
-        parts.push(` mnet(${lambda})=${num(mn)}`);
-      }
+
+    if (betaByMultipole.size === 0) {
+      lines.push(
+        ` &pot kp=${kp}${shape ? ` shape=${shape}` : ''} at=${num(at)} ap=0 rc=${num(rc)}` +
+          ` v=${num(pot.V0)} rv=${num(pot.r0)} av=${num(pot.a0)}` +
+          ` w=${num(pot.W0)} rw=${num(pot.rw)} aw=${num(pot.aw)}` +
+          ` wd=${num(pot.Wd)} wdr=${num(pot.rd)} wda=${num(pot.ad)}` +
+          ` vso=${num(pot.Vso)} rso=${num(pot.rso)} aso=${num(pot.aso)} /   ! ${label(pot.name)}`,
+      );
+      return;
     }
-    lines.push(parts.join('') + ` /   ! ${label(pot.name)}`);
+
+    // Deformed potential: individual cards, each type=11 deforming the card just before it
+    // (FRESCO's combined namelist would deform only the surface term).
+    const deformations = (lengthOf: (lambda: number, beta: number) => number) => {
+      const p = [0, 0, 0, 0, 0, 0, 0];
+      for (const [lambda, beta] of betaByMultipole) p[lambda - 1] = lengthOf(lambda, beta);
+      return `p(1:7)= ${p.map(num).join(' ')}`;
+    };
+    const radius = pot.r0 * Math.cbrt(target!.massNumber);
+    const coulombRadius = (pot.rc || pot.r0) * Math.cbrt(target!.massNumber);
+    const card = (body: string) => ` &pot kp=${kp} ${body} /`;
+    lines.push(`${card(`type=0 p(1:3)= ${num(at)} 0 ${num(rc)}`)}   ! ${label(pot.name)}`);
+    if (target!.chargeNumber > 0) {
+      // Intrinsic Coulomb matrix element of a uniformly charged deformed sphere
+      lines.push(card(`type=11 ${deformations((l, b) => (3 * target!.chargeNumber * b * Math.pow(coulombRadius, l)) / (4 * Math.PI))}`));
+    }
+    const shaped = shape ? ` shape=${shape}` : '';
+    // Nuclear deformation lengths δ = β·R
+    const nuclear = card(`type=11 ${deformations((_, b) => b * radius)}`);
+    if (pot.V0 !== 0 || pot.W0 !== 0) {
+      lines.push(card(`type=1${shaped} p(1:7)= ${[pot.V0, pot.r0, pot.a0, pot.W0, pot.rw, pot.aw, 0].map(num).join(' ')}`), nuclear);
+    }
+    if (pot.Wd !== 0) {
+      lines.push(card(`type=2${shaped} p(1:7)= ${[0, 0, 0, pot.Wd, pot.rd, pot.ad, 0].map(num).join(' ')}`), nuclear);
+    }
+    if (pot.Vso !== 0) {
+      lines.push(card(`type=3${shaped} p(1:3)= ${[pot.Vso, pot.rso, pot.aso].map(num).join(' ')}`));
+    }
   });
   lines.push(' &pot /', '');
 
@@ -194,10 +241,17 @@ export function generateFrescoDeck(config: FRESCODeckConfig): string {
     })
     .filter((t): t is NonNullable<typeof t> => t !== null);
 
-  const firstTransfer = transferPartitions[0];
+  // Bound state used by each transfer: the chosen one, else by position
+  const boundStateIndex = (coupling: ChannelCoupling, idx: number) => {
+    const chosen = config.boundStates.findIndex((b) => b.id === coupling.boundStateId);
+    return chosen >= 0 ? chosen : Math.min(idx, config.boundStates.length - 1);
+  };
+
   config.boundStates.forEach((bs, idx) => {
-    const ic1 = firstTransfer?.core.partition ?? 1;
-    const ic2 = firstTransfer?.composite.partition ?? Math.min(2, partitions.length);
+    // Core and composite partitions of the transfer that uses this bound state
+    const user = transferPartitions.find((t, ti) => boundStateIndex(t.coupling, ti) === idx) ?? transferPartitions[0];
+    const ic1 = user?.core.partition ?? 1;
+    const ic2 = user?.composite.partition ?? Math.min(2, partitions.length);
     lines.push(
       ` &overlap kn1=${idx + 1} ic1=${ic1} ic2=${ic2} in=2 kind=0 nn=${bs.nodes + 1} l=${bs.orbitalL}` +
         ` sn=0.5 j=${num(bs.totalJ)} kbpot=${bs.potentialIndex + 1} be=${num(bs.bindingEnergy)}` +
@@ -206,18 +260,23 @@ export function generateFrescoDeck(config: FRESCODeckConfig): string {
   });
   lines.push(' &overlap /', '');
 
-  // &COUPLING: zero-range transfers with target spectroscopic amplitudes
-  transferPartitions.forEach(({ coupling, core, composite }, idx) => {
-    const kn = Math.min(idx, config.boundStates.length - 1) + 1;
-    if (kn < 1) return;
-    const from = stateLocation.get(coupling.fromStateId)!;
-    const to = stateLocation.get(coupling.toStateId)!;
-    const amplitude = Math.sqrt(Math.max(0, coupling.spectroscopicFactor));
-    lines.push(
-      ` &coupling icto=${to.partition} icfrom=${from.partition} kind=5 p1=${ZR_D0} p2=${ZR_FNRNG} /`,
-      `   &cfp in=-2 ib=${composite.index} ia=${core.index} kn=${kn} a=${num(amplitude)} /`,
-    );
-  });
+  // &COUPLING: zero-range transfers with target spectroscopic amplitudes, one &coupling
+  // per pair of partitions (a second card for the same pair would add the coupling twice)
+  for (const group of groupTransfers(config)) {
+    const first = transferPartitions.find((t) => t.coupling.id === group[0].id);
+    if (!first || config.boundStates.length === 0) continue;
+    const from = stateLocation.get(first.coupling.fromStateId)!;
+    const to = stateLocation.get(first.coupling.toStateId)!;
+    lines.push(` &coupling icto=${to.partition} icfrom=${from.partition} kind=5 p1=${ZR_D0} p2=${ZR_FNRNG} /`);
+    group.forEach((coupling, gi) => {
+      const t = transferPartitions.find((x) => x.coupling.id === coupling.id)!;
+      const kn = boundStateIndex(coupling, transferPartitions.indexOf(t)) + 1;
+      const amplitude = Math.sqrt(Math.max(0, coupling.spectroscopicFactor));
+      // in < 0 marks the last amplitude of this coupling
+      const inSign = gi === group.length - 1 ? -2 : 2;
+      lines.push(`   &cfp in=${inSign} ib=${t.composite.index} ia=${t.core.index} kn=${kn} a=${num(amplitude)} /`);
+    });
+  }
   lines.push(' &coupling /', '');
 
   return lines.join('\n');
@@ -227,6 +286,9 @@ interface NamelistGroup {
   name: string;
   values: Map<string, string[]>;
   comment: string;
+  /** Offsets in the text of the '&' and of the terminating '/'. */
+  start: number;
+  end: number;
 }
 
 /** Splits FRESCO namelist input into `&group key=value ... /` records with trailing comments. */
@@ -282,7 +344,7 @@ function readNamelistGroups(text: string): NamelistGroup[] {
       values.set(k.key, tokens.map((t) => t.replace(/^['"]|['"]$/g, '').trim()));
     });
 
-    groups.push({ name: nameMatch[1].toLowerCase(), values, comment: commentMatch ? commentMatch[1].trim() : '' });
+    groups.push({ name: nameMatch[1].toLowerCase(), values, comment: commentMatch ? commentMatch[1].trim() : '', start, end: j });
     i = j + 1;
   }
   return groups;
@@ -340,6 +402,61 @@ export function potentialCards(deckText: string, kp: number): PotentialCard[] {
   return cards;
 }
 
+// Combined &pot variables for p1..p6 of each card, with the synonyms FRESCO accepts.
+const COMBINED_POT_KEYS: Partial<Record<PotentialCard, string[][]>> = {
+  coulomb: [['at'], ['ap'], ['rc'], ['ac']],
+  volume: [['v'], ['rv', 'r0', 'vr0'], ['av', 'a'], ['w'], ['rw', 'wr0', 'r0w'], ['aw', 'wa']],
+  surface: [['vd'], ['vdr'], ['vda'], ['wd'], ['wdr', 'wdr0'], ['wda', 'awd']],
+  spinorbit: [['vso'], ['rso', 'rso0'], ['aso'], ['vsoi'], ['rsoi'], ['asoi']],
+};
+
+/** Replaces `key = value` in a namelist group body, or appends it. */
+function setNamelistValue(body: string, keys: string[], value: number): string {
+  for (const key of keys) {
+    const pattern = new RegExp(`(^|[\\s,])(${key})\\s*=\\s*[^\\s,/]+`, 'i');
+    if (pattern.test(body)) return body.replace(pattern, `$1$2=${num(value)}`);
+  }
+  return `${body.replace(/\s+$/, '')} ${keys[0]}=${num(value)} `;
+}
+
+/**
+ * Sets parameter `col` (p1..p6) of the first `card` of potential `kp` in a FRESCO deck,
+ * editing the &pot namelist that defines it (combined or individual form).
+ */
+export function patchDeckPotential(deck: string, kp: number, card: PotentialCard, col: number, value: number): string {
+  for (const g of readNamelistGroups(deck)) {
+    if (g.name !== 'pot' || Math.abs(nlNumber(g, ['kp'], 0)) !== kp) continue;
+    const groupText = deck.slice(g.start, g.end + 1);
+    if (!potentialCards(groupText, kp).includes(card)) continue;
+    let body = deck.slice(g.start, g.end);
+    const params = nlParams(g);
+    const combined = !g.values.has('type') && params.every((p) => p === 0);
+    if (combined) {
+      const keys = COMBINED_POT_KEYS[card]?.[col - 1];
+      if (!keys) return deck;
+      body = setNamelistValue(body, keys, value);
+    } else {
+      const range = body.match(/(^|[\s,])p\s*\(\s*(\d+)\s*:\s*(\d+)\s*\)\s*=\s*((?:[-+\d.eEdD]+[\s,]*)+)/i);
+      if (range && col >= Number(range[2]) && col <= Number(range[3])) {
+        const nums = range[4].trim().split(/[\s,]+/);
+        nums[col - Number(range[2])] = num(value);
+        body = body.replace(range[0], `${range[1]}p(${range[2]}:${range[3]})= ${nums.join(' ')} `);
+      } else {
+        body = setNamelistValue(body, [`p${col}`, `p\\(${col}\\)`], value);
+      }
+    }
+    return deck.slice(0, g.start) + body + deck.slice(g.end);
+  }
+  return deck;
+}
+
+/** Sets the spectroscopic amplitude `a` of the `n`-th &cfp namelist (1-based). */
+export function patchDeckCfp(deck: string, n: number, amplitude: number): string {
+  const g = readNamelistGroups(deck).filter((x) => x.name === 'cfp' && x.values.size > 0)[n - 1];
+  if (!g) return deck;
+  return deck.slice(0, g.start) + setNamelistValue(deck.slice(g.start, g.end), ['a'], amplitude) + deck.slice(g.end);
+}
+
 /** Reads p1..p7 from either `p(1:7)=...`, `p(k)=...` or `p1=...` forms. */
 function nlParams(group: NamelistGroup): number[] {
   const p = [0, 0, 0, 0, 0, 0, 0];
@@ -395,6 +512,7 @@ export function parseFrescoDeck(deckText: string): FRESCODeckConfig {
   const potByKp = new Map<number, OpticalPotential>();
   const potScale = new Map<number, number>();
   const deformations: { kp: number; k: number; length: number }[] = [];
+  const lastCardType = new Map<number, number>();
   const overlapsByKn = new Map<number, BoundState>();
   let pendingTransfer: { icto: number; icfrom: number } | null = null;
 
@@ -504,6 +622,8 @@ export function parseFrescoDeck(deckText: string): FRESCODeckConfig {
         // Individual Card 9/10 form: kp, type, p(1:7)
         const type = nlNumber(g, ['type'], 0);
         const p = nlParams(g);
+        const previousType = lastCardType.get(kp);
+        lastCardType.set(kp, type);
         if (type === 0) {
           // Card 9: radii are multiples of A1^(1/3) + A2^(1/3); convert to the GUI's At^(1/3) convention
           const scale = p[0] > 0 ? (Math.cbrt(p[0]) + Math.cbrt(p[1])) / Math.cbrt(p[0]) : 1;
@@ -517,10 +637,11 @@ export function parseFrescoDeck(deckText: string): FRESCODeckConfig {
             Object.assign(pot, { Wd: p[3], rd: p[4] * scale, ad: p[5] });
           } else if (type === 3) {
             Object.assign(pot, { Vso: p[0], rso: p[1] * scale, aso: p[2] });
-          } else if (type === 11) {
-            // p(k) = nuclear deformation length for multipole k
+          } else if (type === 11 && previousType !== 0) {
+            // After a nuclear card, p(k) = deformation length for multipole k (after the
+            // Coulomb card it is the Coulomb matrix element, which follows from β)
             p.slice(0, 6).forEach((length, i) => {
-              if (length !== 0) deformations.push({ kp, k: i + 1, length });
+              if (length !== 0 && !deformations.some((d) => d.kp === kp && d.k === i + 1)) deformations.push({ kp, k: i + 1, length });
             });
           }
         }
@@ -562,6 +683,7 @@ export function parseFrescoDeck(deckText: string): FRESCODeckConfig {
           lambda: 0,
           beta: 0,
           spectroscopicFactor: Number((a * a).toPrecision(6)),
+          boundStateId: `bs${nlNumber(g, ['kn'], 1)}`,
         });
       }
     }

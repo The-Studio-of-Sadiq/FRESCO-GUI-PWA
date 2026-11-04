@@ -1,4 +1,5 @@
 import { AngularDataPoint, FRESCODeckConfig, SimulationOutput, SimulationSummary } from '../types/fresco';
+import { parseFort17 } from '../physics/fort17';
 import { parseFort16Output, parseFrescoDeck, parseFrescoOutChannels, parseFrescoOutCrossSections } from '../physics/frescoParser';
 
 // Turns the raw output of a FRESCO run into the app's result shape. Shared by the
@@ -22,7 +23,7 @@ export interface FortranRunResult {
 }
 
 /** Output files a run may leave behind, read by name (fort.N). */
-export const FRESCO_OUTPUT_FILES = ['fresco.out', 'fort.16', 'fort.57', 'fort.13', 'fort.14', 'fort.17', 'fort.38', 'fort.39', 'fort.200'];
+export const FRESCO_OUTPUT_FILES = ['fresco.out', 'fort.16', 'fort.17', 'fort.57', 'fort.13', 'fort.14', 'fort.17', 'fort.38', 'fort.39', 'fort.200'];
 
 export function projectileSpinOf(deck: string | FRESCODeckConfig): number {
   const config = typeof deck === 'string' ? parseFrescoDeck(deck) : deck;
@@ -90,12 +91,14 @@ export function buildFortranRunResult(run: RawFrescoRun): FortranRunResult {
   const stopLine = frescoOutRaw.split('\n').find((l) => /\bSTOP!?\s*$/.test(l.trim()));
 
   const channels = parseFrescoOutChannels(frescoOutRaw, run.projectileSpin);
+  // Elastic S-matrix and wavefunctions, when the deck asked for them (wdisk=1)
+  const { sMatrix, wavefunctions } = files['fort.17'] ? parseFort17(files['fort.17']) : { sMatrix: [], wavefunctions: [] };
   const output: SimulationOutput = {
     angularDistribution,
     channels: channels.length > 0 ? channels : undefined,
     potentials: [],
-    wavefunctions: [],
-    sMatrix: [],
+    wavefunctions,
+    sMatrix,
     summary,
     logs: [
       `[${engine}] Executed ${run.executable}`,

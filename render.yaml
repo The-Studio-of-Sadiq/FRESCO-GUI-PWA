@@ -5,6 +5,3 @@ services:
     plan: free
     region: oregon
     dockerfilePath: Dockerfile
-    envVars:
-      - key: GEMINI_API_KEY
-        sync: false

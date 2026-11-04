@@ -65,6 +65,8 @@ export interface ChannelCoupling {
   lambda: number; // Multipolarity L=2, 3...
   beta: number; // Deformation parameter beta_L
   spectroscopicFactor: number; // Spectroscopic factor S
+  /** Transfers: the bound state (overlap) carrying the transferred particle. */
+  boundStateId?: string;
 }
 
 export interface FRESCODeckConfig {
@@ -113,12 +115,16 @@ export interface WavefunctionPoint {
 
 export interface RadialWavefunction {
   l: number;
+  /** Total angular momentum of the channel, j = l + s (FRESCO runs). */
+  j?: number;
   stateName: string;
   points: WavefunctionPoint[];
 }
 
 export interface SMatrixElement {
   l: number;
+  /** j = l + s for particles with spin (FRESCO runs). */
+  j?: number;
   eta: number; // Transmission coefficient |S_L|
   phaseShiftDeg: number; // Phase shift delta_L in degrees
   reS: number;

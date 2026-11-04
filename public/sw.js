@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fresco-pwa-v6';
+const CACHE_NAME = 'fresco-pwa-v7';
 const STATIC_ASSETS = [
   '/',
   '/index.html',

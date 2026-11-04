@@ -126,6 +126,27 @@ export const ResultsPanel: React.FC<ResultsPanelProps> = ({ output, isRunning, f
   }, [ad, expData]);
   const ratioTicks = useMemo(() => decadeTicks(ad.map((p) => p.ratioRutherford)), [ad]);
 
+  // S-matrix by L, one series per j − l (e.g. J = L ± ½ for spin-½ projectiles)
+  const sMatrixRows = useMemo(() => {
+    const elements = output?.sMatrix ?? [];
+    const offsets = Array.from(new Set<number>(elements.map((e) => (e.j !== undefined ? Number((e.j - e.l).toFixed(1)) : 0)))).sort((a, b) => b - a);
+    const series = offsets.map((o, k) => ({
+      key: k,
+      offset: o,
+      label: offsets.length > 1 || elements.some((e) => e.j !== undefined) ? `J = L ${o >= 0 ? '+' : '−'} ${Math.abs(o)}` : '',
+    }));
+    const byL = new Map<number, Record<string, number>>();
+    for (const e of elements) {
+      const s = series.find((x) => x.offset === (e.j !== undefined ? Number((e.j - e.l).toFixed(1)) : 0))!;
+      const row = byL.get(e.l) ?? { l: e.l };
+      row[`eta${s.key}`] = e.eta;
+      row[`phase${s.key}`] = e.phaseShiftDeg;
+      byL.set(e.l, row);
+    }
+    return { series, rows: [...byL.values()].sort((a, b) => a.l - b.l) };
+  }, [output]);
+  const [waveIndex, setWaveIndex] = useState(0);
+
   const handleFile = (file: File | undefined) => {
     if (!file) return;
     file.text().then((text) => {
@@ -232,6 +253,20 @@ export const ResultsPanel: React.FC<ResultsPanelProps> = ({ output, isRunning, f
 
         <div className="flex flex-wrap items-center justify-between gap-2">
           <Segmented label="Plot" options={views} value={activeView} onChange={setView} />
+          {activeView === 'wavefunctions' && (
+            <select
+              aria-label="Partial wave"
+              value={Math.min(waveIndex, output.wavefunctions.length - 1)}
+              onChange={(e) => setWaveIndex(Number(e.target.value))}
+              className="bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-xs text-slate-100 cursor-pointer focus:outline-none focus:ring-2 focus:ring-cyan-500/60"
+            >
+              {output.wavefunctions.map((w, i) => (
+                <option key={i} value={i}>
+                  {w.stateName}
+                </option>
+              ))}
+            </select>
+          )}
           {(activeView === 'xs' || activeView === 'ratio') && (
             <Segmented
               label="Y axis scale"
@@ -329,23 +364,30 @@ export const ResultsPanel: React.FC<ResultsPanelProps> = ({ output, isRunning, f
                   <Line dataKey="vCoulomb" name="Coulomb" stroke="#fbbf24" strokeDasharray="4 4" dot={false} isAnimationActive={false} />
                 </ComposedChart>
               ) : activeView === 'smatrix' ? (
-                <ComposedChart data={output.sMatrix} margin={{ top: 8, right: 12, left: 4, bottom: 12 }}>
+                <ComposedChart data={sMatrixRows.rows} margin={{ top: 8, right: 12, left: 4, bottom: 12 }}>
                   <CartesianGrid stroke={GRID} />
                   <XAxis dataKey="l" type="number" stroke={AXIS} tick={{ fontSize: 11 }} label={{ value: 'L', position: 'insideBottom', offset: -4, fill: AXIS, fontSize: 12 }} />
-                  <YAxis yAxisId="eta" domain={[0, 1]} stroke="#22d3ee" tick={{ fontSize: 11 }} width={48} />
-                  <YAxis yAxisId="phase" orientation="right" stroke="#f43f5e" tick={{ fontSize: 11 }} width={48} />
-                  <Tooltip contentStyle={tooltipStyle} formatter={(v) => fmt(v)} />
+                  <YAxis yAxisId="eta" domain={[0, 1]} stroke="#22d3ee" tick={{ fontSize: 11 }} width={48} label={{ value: '|S|', angle: -90, position: 'insideLeft', fill: '#22d3ee', fontSize: 12 }} />
+                  <YAxis yAxisId="phase" orientation="right" stroke="#f43f5e" tick={{ fontSize: 11 }} width={48} label={{ value: 'Re δ (deg)', angle: 90, position: 'insideRight', fill: '#f43f5e', fontSize: 12 }} />
+                  <Tooltip contentStyle={tooltipStyle} formatter={(v) => fmt(v)} labelFormatter={(l) => `L = ${l}`} />
                   <Legend verticalAlign="top" height={28} wrapperStyle={{ fontSize: 12 }} />
-                  <Line yAxisId="eta" dataKey="eta" name="|S_L|" stroke="#22d3ee" dot={{ r: 2 }} isAnimationActive={false} />
-                  <Line yAxisId="phase" dataKey="phaseShiftDeg" name="δ_L (deg)" stroke="#f43f5e" dot={{ r: 2 }} isAnimationActive={false} />
+                  {sMatrixRows.series.map((s, k) => (
+                    <React.Fragment key={s.key}>
+                      <Line yAxisId="eta" dataKey={`eta${s.key}`} name={`|S| ${s.label}`} stroke="#22d3ee" strokeDasharray={k ? '4 3' : undefined} dot={{ r: 2 }} connectNulls isAnimationActive={false} />
+                      <Line yAxisId="phase" dataKey={`phase${s.key}`} name={`δ ${s.label}`} stroke="#f43f5e" strokeDasharray={k ? '4 3' : undefined} dot={{ r: 2 }} connectNulls isAnimationActive={false} />
+                    </React.Fragment>
+                  ))}
                 </ComposedChart>
               ) : (
-                <ComposedChart data={output.wavefunctions[0]?.points ?? []} margin={{ top: 8, right: 12, left: 4, bottom: 12 }}>
+                <ComposedChart data={output.wavefunctions[Math.min(waveIndex, output.wavefunctions.length - 1)]?.points ?? []} margin={{ top: 8, right: 12, left: 4, bottom: 12 }}>
                   <CartesianGrid stroke={GRID} />
                   <XAxis dataKey="r" type="number" stroke={AXIS} tick={{ fontSize: 11 }} label={{ value: 'r (fm)', position: 'insideBottom', offset: -4, fill: AXIS, fontSize: 12 }} />
                   <YAxis stroke={AXIS} tick={{ fontSize: 11 }} width={64} tickFormatter={tickFmt} />
                   <Tooltip contentStyle={tooltipStyle} formatter={(v) => fmt(v)} />
-                  <Line dataKey="probDensity" name="|u(r)|²" stroke="#4ade80" dot={false} isAnimationActive={false} />
+                  <Legend verticalAlign="top" height={28} wrapperStyle={{ fontSize: 12 }} />
+                  <Line dataKey="uReal" name="Re u(r)" stroke="#22d3ee" dot={false} isAnimationActive={false} />
+                  <Line dataKey="uImag" name="Im u(r)" stroke="#a78bfa" dot={false} isAnimationActive={false} />
+                  <Line dataKey="probDensity" name="|u(r)|²" stroke="#4ade80" strokeDasharray="4 3" dot={false} isAnimationActive={false} />
                 </ComposedChart>
               )}
             </ResponsiveContainer>

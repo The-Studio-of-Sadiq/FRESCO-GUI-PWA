@@ -1,0 +1,144 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "FRESCO PWA API",
+    "version": "1.0.0",
+    "description": "Run FRESCO coupled-reaction-channels calculations and SFRESCO χ² fits. The official Fortran runs as WebAssembly. Energies are lab MeV, angles centre-of-mass degrees, cross sections mb/sr (mb when integrated). The same operations are available as MCP tools at POST /mcp."
+  },
+  "servers": [{ "url": "/" }],
+  "paths": {
+    "/api/examples": {
+      "get": {
+        "operationId": "listExamples",
+        "summary": "Example reactions with their full setup objects",
+        "responses": { "200": { "description": "Examples", "content": { "application/json": { "schema": { "type": "object" } } } } }
+      }
+    },
+    "/api/run": {
+      "post": {
+        "operationId": "runFresco",
+        "summary": "Run FRESCO on an example, a setup or a FRESCO deck",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Source" }, "example": { "example": "p_208pb_16mev", "overrides": { "eLab": 30 }, "maxPoints": 50 } } }
+        },
+        "responses": {
+          "200": { "description": "Cross sections per channel, elastic S-matrix and the deck that ran", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RunResult" } } } },
+          "400": { "description": "Invalid request" },
+          "422": { "description": "The calculation could not be set up" }
+        }
+      }
+    },
+    "/api/fit": {
+      "post": {
+        "operationId": "fitSfresco",
+        "summary": "χ² fit with SFRESCO (MINUIT MIGRAD)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  { "$ref": "#/components/schemas/Source" },
+                  {
+                    "type": "object",
+                    "required": ["variables", "datasets"],
+                    "properties": {
+                      "variables": { "type": "array", "items": { "$ref": "#/components/schemas/Variable" }, "minItems": 1 },
+                      "datasets": { "type": "array", "items": { "$ref": "#/components/schemas/Dataset" }, "minItems": 1 }
+                    }
+                  }
+                ]
+              },
+              "example": {
+                "example": "p_208pb_16mev",
+                "variables": [{ "kind": "potential", "potential": 1, "parameter": "V" }, { "kind": "potential", "potential": 1, "parameter": "W" }],
+                "datasets": [{ "type": "angular", "quantity": "ratio", "points": [[30, 1.06, 0.03], [60, 0.735, 0.022], [90, 0.44, 0.013], [120, 0.32, 0.01]] }]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Fitted values with MINUIT errors, χ²/N before and after, theory at the data points" },
+          "400": { "description": "Invalid request" },
+          "422": { "description": "The fit could not be set up or SFRESCO failed" }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Source": {
+        "type": "object",
+        "description": "Exactly one of example, setup or deck.",
+        "properties": {
+          "example": { "type": "string", "description": "Example id from /api/examples" },
+          "setup": { "type": "object", "description": "Setup object as in /api/examples (title, eLab, dr, rmatch, rmax, lmax, angleStart, angleEnd, angleStep, partitions, states, potentials, boundStates, couplings)" },
+          "deck": { "type": "string", "description": "A FRESCO namelist input deck; runs exactly as written" },
+          "overrides": { "type": "object", "description": "Numbers applied to an example or setup: eLab, angleStart, angleEnd, angleStep, lmax", "additionalProperties": { "type": "number" } },
+          "maxPoints": { "type": "integer", "default": 200, "minimum": 10, "maximum": 2000 },
+          "includeListing": { "type": "boolean", "default": false, "description": "Also return FRESCO's text output" }
+        }
+      },
+      "RunResult": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "error": { "type": "string" },
+          "engine": { "type": "string" },
+          "reactionCrossSectionMb": { "type": "number" },
+          "elasticCrossSectionMb": { "type": "number", "description": "Neutral projectiles only" },
+          "channels": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "channel": { "type": "string" },
+                "integratedMb": { "type": "number" },
+                "points": { "type": "array", "items": { "type": "object", "properties": { "angle": { "type": "number" }, "sigmaMbSr": { "type": "number" }, "ratioToRutherford": { "type": "number" }, "Ay": { "type": "number" } } } }
+              }
+            }
+          },
+          "elasticSMatrix": { "type": "array", "items": { "type": "object", "properties": { "L": { "type": "integer" }, "J": { "type": "number" }, "modulus": { "type": "number" }, "phaseShiftDeg": { "type": "number" } } } },
+          "deck": { "type": "string" }
+        }
+      },
+      "Variable": {
+        "type": "object",
+        "required": ["kind"],
+        "properties": {
+          "kind": { "enum": ["potential", "spectroscopic", "normalisation", "rmatrix-energy", "rmatrix-width"] },
+          "potential": { "type": "integer", "minimum": 1, "description": "potential: 1-based potential number" },
+          "parameter": { "enum": ["V", "r_V", "a_V", "W", "r_W", "a_W", "W_D", "r_D", "a_D", "V_so", "r_so", "a_so"] },
+          "transfer": { "type": "integer", "minimum": 1, "description": "spectroscopic: 1-based transfer coupling; the fitted value is the amplitude A, S = A²" },
+          "dataset": { "type": "integer", "minimum": 1, "description": "normalisation: 1-based dataset" },
+          "term": { "type": "integer", "minimum": 1 },
+          "J": { "type": "number" },
+          "parity": { "enum": [1, -1] },
+          "energy": { "type": "number" },
+          "channel": { "type": "integer", "minimum": 1 },
+          "width": { "type": "number" },
+          "min": { "type": "number" },
+          "max": { "type": "number" }
+        }
+      },
+      "Dataset": {
+        "type": "object",
+        "required": ["type", "points"],
+        "properties": {
+          "type": { "enum": ["angular", "excitation", "integrated", "phase"], "description": "angular: x = angle; others: x = lab energy" },
+          "partition": { "type": "integer", "default": 1 },
+          "state": { "type": "integer", "default": 1 },
+          "quantity": { "enum": ["absolute", "ratio"], "default": "absolute" },
+          "energy": { "type": "number", "description": "angular: lab energy" },
+          "angle": { "type": "number", "description": "excitation: c.m. angle" },
+          "integrated": { "enum": ["reaction", "total", "elastic", "channel", "fusion"] },
+          "J": { "type": "number", "description": "phase: total J" },
+          "parity": { "enum": [1, -1] },
+          "channel": { "type": "integer" },
+          "points": { "type": "array", "items": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 }, "description": "[x, value, absolute error]" }
+        }
+      }
+    }
+  }
+}

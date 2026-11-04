@@ -51,7 +51,6 @@ async function handleLocally(pathname: string, method: string, init?: RequestIni
     }
     if (method === 'POST' && pathname === '/api/fortran/run-fresco') return await runLocally(init);
     if (pathname === '/api/fortran/compile') return serverOnly('Compiling Fortran');
-    if (pathname === '/api/gemini') return serverOnly('The Gemini AI assistant');
     return jsonResponse({ error: `Unknown API route ${pathname}` }, 404);
   } catch (err: any) {
     return jsonResponse({ error: err?.message || String(err) }, 500);

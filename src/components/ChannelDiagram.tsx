@@ -23,15 +23,17 @@ export const ChannelDiagram: React.FC<{ config: FRESCODeckConfig }> = ({ config 
   const energies = columns.flatMap((c) => c.states.map((s) => s.energy));
   const lo = Math.min(0, ...energies);
   const hi = Math.max(0, ...energies);
-  const y = (e: number) => (hi === lo ? TOP + PLOT_HEIGHT / 2 : TOP + ((hi - e) / (hi - lo)) * PLOT_HEIGHT);
+  // All levels at one energy (e.g. elastic only): a single row instead of the full height
+  const plotHeight = hi === lo ? 0 : PLOT_HEIGHT;
+  const y = (e: number) => (hi === lo ? TOP + 6 : TOP + ((hi - e) / (hi - lo)) * plotHeight);
   const width = columns.length * COLUMN + (columns.length - 1) * GAP;
-  const height = TOP + PLOT_HEIGHT + BOTTOM;
+  const height = TOP + plotHeight + BOTTOM;
 
   const position = new Map<string, { x: number; y: number; column: number }>();
   columns.forEach((c, ci) => c.states.forEach((s) => position.set(s.state.id, { x: c.x, y: y(s.energy), column: ci })));
 
   return (
-    <svg viewBox={`-6 0 ${width + 12} ${height}`} className="w-full h-auto" role="img" aria-label="Level scheme of the reaction channels and couplings">
+    <svg viewBox={`-6 0 ${width + 12} ${height}`} width={width + 12} height={height} className="max-w-full h-auto mx-auto block" role="img" aria-label="Level scheme of the reaction channels and couplings">
       <defs>
         {['transfer', 'inelastic'].map((kind) => (
           <marker key={kind} id={`arrow-${kind}`} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
@@ -76,13 +78,12 @@ export const ChannelDiagram: React.FC<{ config: FRESCODeckConfig }> = ({ config 
         const color = transfer ? '#fbbf24' : '#a78bfa';
         const label = transfer ? `S = ${cp.spectroscopicFactor}` : `λ=${cp.lambda}, β=${cp.beta}`;
         if (a.column === b.column) {
-          // Inelastic: arc on the right of the column
-          const x = a.x + COLUMN - 22;
-          const bulge = Math.max(24, Math.abs(b.y - a.y) / 2);
+          // Inelastic: a vertical arrow between the levels, inside the column, label beside it
+          const x = a.x + COLUMN * 0.4;
           return (
             <g key={cp.id}>
-              <path d={`M${x},${a.y} C${x + bulge},${a.y} ${x + bulge},${b.y} ${x},${b.y}`} fill="none" stroke={color} strokeWidth={1.5} markerEnd="url(#arrow-inelastic)" />
-              <text x={x + bulge * 0.75 + 4} y={(a.y + b.y) / 2 + 4} className="fill-violet-300" fontSize={12}>
+              <path d={`M${x},${a.y} L${x},${b.y + (b.y > a.y ? -3 : 3)}`} fill="none" stroke={color} strokeWidth={1.5} markerEnd="url(#arrow-inelastic)" />
+              <text x={x + 6} y={(a.y + b.y) / 2 + 4} className="fill-violet-300" fontSize={12}>
                 {label}
               </text>
             </g>

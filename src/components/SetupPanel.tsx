@@ -4,7 +4,7 @@ import { FRESCODeckConfig, Nucleus, OpticalPotential, Partition } from '../types
 import { PRESET_REACTIONS } from '../physics/presets';
 import { OPTICAL_MODEL_LIBRARY } from '../physics/opticalModels';
 import { Button, Card, NumField, SelectField, TextField } from './ui';
-import { ChannelDiagram } from './ChannelDiagram';
+import { ChannelsEditor } from './ChannelsEditor';
 
 interface SetupPanelProps {
   config: FRESCODeckConfig;
@@ -73,11 +73,6 @@ export const SetupPanel: React.FC<SetupPanelProps> = ({ config, onChange, preset
     });
     setPotIndex(Math.max(0, idx - 1));
   };
-
-  const assignStatePotential = (stateId: string, potentialIndex: number) =>
-    set('states', config.states.map((s) => (s.id === stateId ? { ...s, potentialIndex } : s)));
-  const assignBoundPotential = (boundId: string, potentialIndex: number) =>
-    set('boundStates', config.boundStates.map((b) => (b.id === boundId ? { ...b, potentialIndex } : b)));
 
   const potentialOptions = config.potentials.map((p, i) => (
     <option key={p.id} value={i}>
@@ -204,45 +199,7 @@ export const SetupPanel: React.FC<SetupPanelProps> = ({ config, onChange, preset
         </Card>
       )}
 
-      <Card
-        title="Channels & couplings"
-        actions={
-          <button type="button" onClick={onOpenDeck} className="text-xs text-cyan-400 hover:text-cyan-300 cursor-pointer">
-            Edit in input deck
-          </button>
-        }
-      >
-        <div className="space-y-3">
-          <ChannelDiagram config={config} />
-
-          <div className="space-y-2">
-            {config.partitions.map((p, pi) =>
-              config.states
-                .filter((s) => s.partitionId === p.id)
-                .map((s) => (
-                  <SelectField
-                    key={s.id}
-                    label={`${pi === 0 ? 'Entrance' : `Partition ${pi + 1}`}: ${s.name} — optical potential`}
-                    value={String(s.potentialIndex)}
-                    onChange={(v) => assignStatePotential(s.id, Number(v))}
-                  >
-                    {potentialOptions}
-                  </SelectField>
-                )),
-            )}
-            {config.boundStates.map((b) => (
-              <SelectField
-                key={b.id}
-                label={`Bound state: ${b.name} (BE ${b.bindingEnergy} MeV, ℓ = ${b.orbitalL}, j = ${b.totalJ}) — binding potential`}
-                value={String(b.potentialIndex)}
-                onChange={(v) => assignBoundPotential(b.id, Number(v))}
-              >
-                {potentialOptions}
-              </SelectField>
-            ))}
-          </div>
-        </div>
-      </Card>
+      <ChannelsEditor config={config} onChange={onChange} onOpenDeck={onOpenDeck} />
 
       <details className="group bg-slate-900 border border-slate-800 rounded-xl">
         <summary className="px-4 py-3 text-sm font-semibold text-slate-100 cursor-pointer select-none list-none flex items-center justify-between">
