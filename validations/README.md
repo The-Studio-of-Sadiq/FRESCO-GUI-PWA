@@ -76,3 +76,25 @@ Notes:
 - The WebAssembly build compiles `frxx3.f` with `mod(i-is,norto)` guarded against
   `norto = 0` (see `wasm/build.sh`); gfortran avoided that division by zero only by
   short-circuiting `.AND.`. Every other source file is compiled unchanged.
+
+## SFRESCO (χ² fitting)
+
+The Fit tab runs SFRESCO, FRESCO with the MINUIT minimiser, compiled to WebAssembly
+(`public/fresco/sfresco.wasm`). `sfresco/check.mjs` (`npm run validate:sfresco`) runs
+FRESCO's own SFRESCO test from `src/test` through it: p + ¹¹²Cd elastic scattering at
+27.9 MeV, fitting r₀, V, W and W_D to 28 ratio-to-Rutherford points. It then puts the
+starting and the fitted parameters into the deck and recomputes χ²/N from the native
+gfortran FRESCO on the Render deployment.
+
+| | χ²/N, WebAssembly SFRESCO | χ²/N, native FRESCO with the same parameters |
+|---|---|---|
+| Starting values (V 52.5, r₀ 1.171, W 3.5, W_D 8.5) | 20.5232 | 20.5246 |
+| Fitted (V 52.184, r₀ 1.1814, W 2.895, W_D 8.182) | 8.9352 | 8.9358 |
+
+The small differences come from the 5 significant digits FRESCO prints for σ/σ_Ruth.
+`sfresco/wasm.out` is the WebAssembly SFRESCO output.
+
+Searches set up by the app were also checked against data generated with known
+parameters: p + ²⁰⁸Pb at 16 MeV with V = 49, W = 3.5 (fit started from 52.5, 2.5) gave
+V = 49.00 ± 0.34, W = 3.499 ± 0.39, and ¹²C(d,p)¹³C transfer data made with S = 0.60
+(started from 0.85) gave S = 0.6000.

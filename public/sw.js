@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fresco-pwa-v5';
+const CACHE_NAME = 'fresco-pwa-v6';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -20,7 +20,9 @@ const STATIC_ASSETS = [
   '/images/fresco_og_image.jpg',
   // Official FRESCO Fortran compiled to WebAssembly (offline simulations)
   '/fresco/fresco.js',
-  '/fresco/fresco.wasm'
+  '/fresco/fresco.wasm',
+  '/fresco/sfresco.js',
+  '/fresco/sfresco.wasm'
 ];
 
 // Install Event

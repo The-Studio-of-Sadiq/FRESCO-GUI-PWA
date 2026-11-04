@@ -304,6 +304,42 @@ function nlString(group: NamelistGroup, key: string, fallback: string): string {
   return v && v.length > 0 ? v[0] : fallback;
 }
 
+export type PotentialCard = 'coulomb' | 'volume' | 'surface' | 'spinorbit' | 'deformation' | 'other';
+
+/**
+ * The potential cards FRESCO builds for potential `kp`, in order. SFRESCO's `pline`
+ * counts these cards (1-based). A combined `&pot` namelist is expanded as in FRESCO's
+ * frxx0.f: Coulomb, Coulomb deformations (mnep, mnet), volume, surface, nuclear
+ * deformations (defp, deft), spin-orbit; terms whose strengths are all zero get no card.
+ */
+export function potentialCards(deckText: string, kp: number): PotentialCard[] {
+  const cards: PotentialCard[] = [];
+  const nonZero = (g: NamelistGroup, keys: string[]) => keys.some((k) => Math.abs(nlNumber(g, [k], 0)) > 1e-10);
+  const anyArray = (g: NamelistGroup, prefix: string) =>
+    [...g.values.entries()].some(([k, v]) => k.startsWith(`${prefix}(`) && v.some((x) => Math.abs(parseFloat(x)) > 1e-10));
+  for (const g of readNamelistGroups(deckText)) {
+    if (g.name !== 'pot' || g.values.size === 0 || Math.abs(nlNumber(g, ['kp'], 0)) !== kp) continue;
+    const params = nlParams(g);
+    const combined = !g.values.has('type') && params.every((p) => p === 0);
+    if (!combined) {
+      const type = Math.abs(nlNumber(g, ['type'], 0));
+      cards.push(
+        type === 0 ? 'coulomb' : type === 1 ? 'volume' : type === 2 ? 'surface' : type === 3 ? 'spinorbit' : type >= 10 && type <= 13 ? 'deformation' : 'other',
+      );
+      continue;
+    }
+    if (nonZero(g, ['rc'])) cards.push('coulomb');
+    if (anyArray(g, 'mnep')) cards.push('deformation');
+    if (anyArray(g, 'mnet')) cards.push('deformation');
+    if (nonZero(g, ['v', 'w'])) cards.push('volume');
+    if (nonZero(g, ['vd', 'wd'])) cards.push('surface');
+    if (anyArray(g, 'defp')) cards.push('deformation');
+    if (anyArray(g, 'deft')) cards.push('deformation');
+    if (nonZero(g, ['vso', 'vsoi'])) cards.push('spinorbit');
+  }
+  return cards;
+}
+
 /** Reads p1..p7 from either `p(1:7)=...`, `p(k)=...` or `p1=...` forms. */
 function nlParams(group: NamelistGroup): number[] {
   const p = [0, 0, 0, 0, 0, 0, 0];

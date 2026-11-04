@@ -38,6 +38,17 @@ export const HelpPanel: React.FC = () => (
       </ol>
     </Card>
 
+    <Card title="Fitting to data">
+      <p>
+        <strong className="text-slate-100">Fit</strong> runs SFRESCO: FRESCO with the MINUIT minimiser, also compiled to WebAssembly. Paste
+        or upload measured cross sections (angle, value, error) for any channel, as mb/sr or as a ratio to Rutherford for elastic
+        scattering. Tick the optical-potential terms, spectroscopic factors or data normalisation to vary, and press Fit. MIGRAD adjusts
+        them to minimise χ². You get the fitted values with MINUIT errors, χ²/N before and after, and the fitted curve over your data.{' '}
+        <strong className="text-slate-100">Use fitted values</strong> puts them into the setup.
+      </p>
+      <p className="mt-2">Terms that are zero in the setup have no card in the FRESCO input and cannot be varied; give them a starting value first.</p>
+    </Card>
+
     <Card title="What runs your calculation">
       <p>
         The official FRESCO Fortran by Ian J. Thompson does the calculation. It is compiled to WebAssembly and runs inside your browser,

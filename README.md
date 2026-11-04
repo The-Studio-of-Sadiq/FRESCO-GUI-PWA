@@ -10,6 +10,7 @@ This platform bridges classical Fortran computational physics with modern web vi
 
 - **Interactive Input Deck Generator**: Namelist-based form builder and code editor supporting elastic scattering, coupled-channels, inelastic excitation, and transfer reactions (`&FRESCO` namelist generation).
 - **Native Fortran Execution Engine**: Runs compiled `fresco` and `sfresco` binaries directly on the server host or container using `gfortran`.
+- **χ² Fitting with SFRESCO**: The Fit tab runs SFRESCO (FRESCO + MINUIT), also compiled to WebAssembly, to fit optical-potential parameters, spectroscopic factors and data normalisation to measured angular distributions.
 - **Fortran in the Browser (WebAssembly)**: The official FRESCO Fortran is also compiled to WebAssembly (`public/fresco/`), so the app runs real FRESCO calculations with no server: on static hosting such as Vercel, and offline once the PWA is installed.
 - **Multi-Channel XMGrace (`fort.16`) Parser**: Robust parser capable of reading multi-state XMGrace outputs, separating angular distributions across reaction channels (elastic ground state vs. excited states), and filtering directives.
 - **Interactive Data Visualization**: Responsive plots using Recharts with logarithmic/linear scaling, center-of-mass angular distribution curves, Rutherford ratio plots, and coupling diagrams.
